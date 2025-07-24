@@ -1,0 +1,11 @@
+{
+    "display_name": "LLM Translator For Me",
+    "loading_order": 9,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "author": "temporary0723 (forked from NamelessKkang & 1234anon)",
+    "version": "2.0.0-for-me",
+    "homePage": "https://github.com/temporary0723/LLM-Translator-ForMe",
+    "auto_update": false
+}

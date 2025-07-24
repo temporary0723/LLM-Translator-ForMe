@@ -1,0 +1,326 @@
+<div class="translation_settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>LLM Translator For Me</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+				
+
+        <div class="inline-drawer-content">		
+
+
+			<!-- Select 요소 추가 -->
+			<hr>
+			<div class="inline-drawer">
+				<label for="translation_display_mode">원문<>번역문 함께 보기</label>
+			</div>
+			<select id="translation_display_mode" class="text_pole">
+				<option value="disabled">사용 안 함</option>
+				<option value="folded">접기 방식</option>
+				<option value="original_first">원문 먼저 보기</option>
+				<option value="unfolded">펼침 방식</option>
+			</select>
+	<hr>
+		
+            <label class="flex-container">
+                <input type="checkbox" id="llm_translation_button_toggle">퀵 입력 번역 버튼 추가
+            </label>
+            <label class="flex-container">
+                <input type="checkbox" id="llm_prefill_toggle">프리필 사용
+            </label>
+            <label class="flex-container">
+                <input type="checkbox" id="llm_use_reverse_proxy">리버스 프록시 사용
+            </label>
+            <label class="flex-container">
+                <input type="checkbox" id="auto_translate_new_messages">새 메시지 자동 번역
+            </label>
+            <label class="flex-container">
+                <input type="checkbox" id="force_sequential_matching">문단 순차 매칭 사용
+            </label>
+            <label class="flex-container">
+                <input type="checkbox" id="hide_legacy_translate_button">번역 아이콘 숨기기
+            </label>
+            <label class="flex-container">
+                <input type="checkbox" id="hide_toggle_button">번역 토글 아이콘 숨기기
+            </label>
+            <label class="flex-container">
+                <input type="checkbox" id="hide_edit_button">번역 수정 아이콘 숨기기
+            </label>
+            <label class="flex-container">
+                <input type="checkbox" id="hide_new_translate_button">번역/전환 아이콘 숨기기
+            </label>
+            <label class="flex-container">
+                <input type="checkbox" id="hide_paragraph_button">문단 수 교정 아이콘 숨기기
+            </label>
+            <label class="flex-container">
+                <input type="checkbox" id="hide_delete_button">번역 삭제 아이콘 숨기기
+            </label>
+            <hr>
+                        
+            <label for="llm_provider">공급자</label>
+            <select id="llm_provider">
+                <option value="openai">OpenAI</option>
+                <option value="claude">Claude</option>
+                <option value="cohere">Cohere</option>
+                <option value="google">Google AI</option>
+            </select>
+
+            <label for="llm_model">모델</label>
+            <select id="llm_model">
+                <!-- 모델 목록은 동적으로 추가됨 -->
+            </select>
+
+            <!-- 새로운 프롬프트 선택 드롭다운 -->
+            <label for="prompt_select">적용할 프롬프트 선택</label>
+            <div class="prompt-select-container">
+                <select id="prompt_select" class="text_pole">
+                    <option value="default">채팅 번역 프롬프트</option>
+                </select>
+                <button id="addPromptBtn" class="menu_button small-button" title="프롬프트 추가">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+                <button id="deletePromptBtn" class="menu_button small-button" title="프롬프트 삭제">
+                    <i class="fa-solid fa-minus"></i>
+                </button>
+            </div>
+
+            <!-- 프롬프트 선택 드롭다운 (텍스트 수정) -->
+            <label for="llm_prompt_selector">프롬프트 수정</label>
+            <select id="llm_prompt_selector">
+                <option value="llm_prompt_chat">채팅 번역 프롬프트</option>
+                <option value="llm_prompt_retranslate_correction">재번역 (교정) 프롬프트</option>
+                <option value="llm_prompt_retranslate_guidance">재번역 (지침교정) 프롬프트</option>
+                <option value="llm_prompt_retranslate_paragraph">재번역 (문단 수 맞추기) 프롬프트</option>
+                <option value="llm_prompt_input">입력 번역 프롬프트</option>
+                <option value="llm_prefill_content">프리필</option>
+            </select>
+
+            <!-- 통합 프롬프트 편집 영역 -->
+            <div class="flex-container align-items-center space-between">
+                <div class="flex-container align-items-center gap5">
+                    <label for="llm_prompt_editor" id="llm_prompt_editor_label">채팅 번역 프롬프트</label>
+                    <i class="fas fa-edit prompt-editor-button"
+                       data-target-textarea="llm_prompt_editor"
+                       data-modal-title="프롬프트 편집"
+                       data-for="llm_prompt_editor"
+                       title="프롬프트 편집"></i>
+                </div>
+                <button id="prompt_save_button" class="menu_button">저장</button>
+            </div>
+            <textarea id="llm_prompt_editor" placeholder="프롬프트를 입력하세요." rows="4"></textarea>
+
+            <!-- 규칙 프롬프트 영역 추가 -->
+            <div class="flex-container align-items-center space-between">
+                <label for="llm_rule_prompt">규칙 프롬프트 (채팅별)</label>
+                <div class="flex-container align-items-center gap5">
+                    <i class="fas fa-edit rule-prompt-editor-button"
+                       data-target-textarea="llm_rule_prompt"
+                       data-modal-title="규칙 프롬프트 편집"
+                       data-for="llm_rule_prompt"
+                       title="규칙 프롬프트 편집"></i>
+                    <i class="fas fa-info-circle" title="이 규칙은 현재 채팅에만 적용됩니다. 다른 채팅으로 이동하면 해당 채팅의 규칙으로 변경됩니다."></i>
+                </div>
+            </div>
+            <textarea id="llm_rule_prompt" placeholder="이 채팅에만 적용될 번역 규칙을 입력하세요." rows="3"></textarea>
+
+            <!-- 숨겨진 텍스트 영역들 (데이터 보관용) -->
+            <textarea id="llm_prompt_chat" style="display: none;"></textarea>
+            <textarea id="llm_prompt_retranslate_correction" style="display: none;"></textarea>
+            <textarea id="llm_prompt_retranslate_guidance" style="display: none;"></textarea>
+            <textarea id="llm_prompt_retranslate_paragraph" style="display: none;"></textarea>
+            <textarea id="llm_prompt_input" style="display: none;"></textarea>
+            <textarea id="llm_prefill_content" style="display: none;"></textarea>
+
+
+
+
+            <!-- 파라미터 설정 섹션 -->
+            <div class="parameter-settings">
+                <!-- OpenAI 전용 파라미터 -->
+                <div class="parameter-group openai_params">
+                    <div class="parameter-row">
+                        <div class="parameterbox flex-container gap0">
+                            <small>Max Response Length</small>
+                            <input type="range" id="max_length_openai_slider" class="neo-range-slider" min="0" max="16000" step="1">
+                            <input type="number" id="max_length_openai" class="neo-range-input" min="0" max="16000" step="1">
+                        </div>
+                        <div class="parameterbox flex-container gap0">
+                            <small>Temperature</small>
+                            <input type="range" id="temperature_openai_slider" class="neo-range-slider" min="0" max="2" step="0.01">
+                            <input type="number" id="temperature_openai" class="neo-range-input" min="0" max="2" step="0.01">
+                        </div>
+                    </div>
+                    <div class="parameter-row">
+                        <div class="parameterbox flex-container gap0">
+                            <small>Frequency Penalty</small>
+                            <input type="range" id="frequency_penalty_slider" class="neo-range-slider" min="-2" max="2" step="0.01">
+                            <input type="number" id="frequency_penalty" class="neo-range-input" min="-2" max="2" step="0.01">
+                        </div>
+                        <div class="parameterbox flex-container gap0">
+                            <small>Presence Penalty</small>
+                            <input type="range" id="presence_penalty_slider" class="neo-range-slider" min="-2" max="2" step="0.01">
+                            <input type="number" id="presence_penalty" class="neo-range-input" min="-2" max="2" step="0.01">
+                        </div>
+                    </div>
+                    <div class="parameter-row">
+                        <div class="parameterbox flex-container gap0">
+                            <small>Top P</small>
+                            <input type="range" id="top_p_slider" class="neo-range-slider" min="0" max="1" step="0.01">
+                            <input type="number" id="top_p" class="neo-range-input" min="0" max="1" step="0.01">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Claude 전용 파라미터 -->
+                <div class="parameter-group claude_params">
+                    <div class="parameter-row">
+                        <div class="parameterbox flex-container gap0">
+                            <small>Max Response Length</small>
+                            <input type="range" id="max_length_claude_slider" class="neo-range-slider" min="1" max="16000" step="1">
+                            <input type="number" id="max_length_claude" class="neo-range-input" min="1" max="16000" step="1">
+                        </div>
+                        <div class="parameterbox flex-container gap0">
+                            <small>Temperature</small>
+                            <input type="range" id="temperature_claude_slider" class="neo-range-slider" min="0" max="2" step="0.01">
+                            <input type="number" id="temperature_claude" class="neo-range-input" min="0" max="2" step="0.01">
+                        </div>
+                    </div>
+                    <div class="parameter-row">
+                        <div class="parameterbox flex-container gap0">
+                            <small>Top K</small>
+                            <input type="range" id="top_k_claude_slider" class="neo-range-slider" min="0" max="100" step="1">
+                            <input type="number" id="top_k_claude" class="neo-range-input" min="0" max="100" step="1">
+                        </div>
+                        <div class="parameterbox flex-container gap0">
+                            <small>Top P</small>
+                            <input type="range" id="top_p_claude_slider" class="neo-range-slider" min="0" max="1" step="0.01">
+                            <input type="number" id="top_p_claude" class="neo-range-input" min="0" max="1" step="0.01">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cohere 전용 파라미터 -->
+                <div class="parameter-group cohere_params">
+                    <div class="parameter-row">
+                        <div class="parameterbox flex-container gap0">
+                            <small>Max Response Length</small>
+                            <input type="range" id="max_length_cohere_slider" class="neo-range-slider" min="0" max="16000" step="1">
+                            <input type="number" id="max_length_cohere" class="neo-range-input" min="0" max="16000" step="1">
+                        </div>
+                        <div class="parameterbox flex-container gap0">
+                            <small>Temperature</small>
+                            <input type="range" id="temperature_cohere_slider" class="neo-range-slider" min="0" max="2" step="0.01">
+                            <input type="number" id="temperature_cohere" class="neo-range-input" min="0" max="2" step="0.01">
+                        </div>
+                    </div>
+                    <div class="parameter-row">
+                        <div class="parameterbox flex-container gap0">
+                            <small>Frequency Penalty</small>
+                            <input type="range" id="frequency_penalty_cohere_slider" class="neo-range-slider" min="-2" max="2" step="0.01">
+                            <input type="number" id="frequency_penalty_cohere" class="neo-range-input" min="-2" max="2" step="0.01">
+                        </div>
+                        <div class="parameterbox flex-container gap0">
+                            <small>Presence Penalty</small>
+                            <input type="range" id="presence_penalty_cohere_slider" class="neo-range-slider" min="-2" max="2" step="0.01">
+                            <input type="number" id="presence_penalty_cohere" class="neo-range-input" min="-2" max="2" step="0.01">
+                        </div>
+                    </div>
+                    <div class="parameter-row">
+                        <div class="parameterbox flex-container gap0">
+                            <small>Top K</small>
+                            <input type="range" id="top_k_cohere_slider" class="neo-range-slider" min="0" max="100" step="1">
+                            <input type="number" id="top_k_cohere" class="neo-range-input" min="0" max="100" step="1">
+                        </div>
+                        <div class="parameterbox flex-container gap0">
+                            <small>Top P</small>
+                            <input type="range" id="top_p_cohere_slider" class="neo-range-slider" min="0" max="1" step="0.01">
+                            <input type="number" id="top_p_cohere" class="neo-range-input" min="0" max="1" step="0.01">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Google AI 전용 파라미터 -->
+                <div class="parameter-group google_params">
+                    <div class="parameter-row">
+                        <div class="parameterbox flex-container gap0">
+                            <small>Max Response Length</small>
+                            <input type="range" id="max_length_google_slider" class="neo-range-slider" min="0" max="16000" step="1">
+                            <input type="number" id="max_length_google" class="neo-range-input" min="0" max="16000" step="1">
+                        </div>
+                        <div class="parameterbox flex-container gap0">
+                            <small>Temperature</small>
+                            <input type="range" id="temperature_google_slider" class="neo-range-slider" min="0" max="2" step="0.01">
+                            <input type="number" id="temperature_google" class="neo-range-input" min="0" max="2" step="0.01">
+                        </div>
+                    </div>
+                    <div class="parameter-row">
+                        <div class="parameterbox flex-container gap0">
+                            <small>Top K</small>
+                            <input type="range" id="top_k_google_slider" class="neo-range-slider" min="0" max="100" step="1">
+                            <input type="number" id="top_k_google" class="neo-range-input" min="0" max="100" step="1">
+                        </div>
+                        <div class="parameterbox flex-container gap0">
+                            <small>Top P</small>
+                            <input type="range" id="top_p_google_slider" class="neo-range-slider" min="0" max="1" step="0.01">
+                            <input type="number" id="top_p_google" class="neo-range-input" min="0" max="1" step="0.01">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- 리버스 프록시 주소 -->
+            <label for="llm_reverse_proxy_url" class="input-label">리버스 프록시 주소</label>
+            <input id="llm_reverse_proxy_url" type="text" class="text_pole" placeholder="예: https://myproxy.com/v1">
+
+            <!-- 리버스 프록시 비밀번호 -->
+            <label for="llm_reverse_proxy_password" class="input-label">리버스 프록시 비밀번호</label>
+            <div class="password-container">
+                <input id="llm_reverse_proxy_password" type="password" class="text_pole" placeholder="비밀번호를 입력하세요." autocomplete="off">
+                <div id="llm_reverse_proxy_password_show" title="비밀번호 보기" class="menu_button fa-solid fa-eye-slash fa-fw"></div>
+            </div>
+            
+            <hr>
+            
+            <!-- 스로틀링 설정 -->
+            <label for="throttle_delay">
+            전체 번역 딜레이
+            <small>(ms)</small>
+            </label>
+            <input type="number" id="throttle_delay" min="0" value="0" class="text_pole" step="1">
+            
+            <!-- 번역 삭제 -->            
+            <div id="llm_translation_clear" class="menu_button">
+                <i class="fa-solid fa-trash-can"></i>
+                <span>번역 삭제</span>
+            </div>
+			
+			
+            <!-- 다운로드/복원 버튼 추가 -->
+            <hr><div class="translation-backup-buttons">
+			  <button id="llm_translation_download" class="menu_button">
+				<i class="fa-solid fa-download"></i>
+				<span>번역DB 다운로드</span>
+			  </button>
+			  <label for="llm_translation_restore" class="menu_button">
+				<i class="fa-solid fa-upload"></i>
+				<span>번역DB 복원</span>
+			  </label>
+			  <input type="file" id="llm_translation_restore" style="display:none;">
+			  <button id="llm_translation_delete" class="menu_button">
+				<i class="fa-solid fa-trash"></i>
+				<span>번역DB 삭제</span>
+			  </button>
+			</div>
+				   
+			<hr>
+			<div id="llm_translator_db_tool_setup_button" class="menu_button">
+				<i class="fa-solid fa-tools"></i> <!-- 적절한 아이콘으로 변경 가능 -->
+				<span>DB 관리 도구 준비</span>
+			</div>
+			<hr>
+        </div>
+    </div>
+</div>
+<script src="index.js"></script>
