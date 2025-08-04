@@ -3142,7 +3142,8 @@ function processTranslationText(originalText, translatedText) {
             /<thinking>[\s\S]*?<\/thinking>/gi,                 // <<<--- 여기 추가: thinking 태그
             /<tableEdit>[\s\S]*?<\/tableEdit>/gi,
             /<details[^>]*>[\s\S]*?<\/details>/gi,
-            /^```[^\r\n]*\r?\n[\s\S]*?\r?\n```$/gm
+            /^```[^\r\n]*\r?\n[\s\S]*?\r?\n```$/gm,
+            /<pre><code>[\s\S]*?<\/code><\/pre>/gi              // HTML 코드 블록 추가
         ];
         const placeholderPrefix = '__LLM_TRANSLATOR_SPECIAL_BLOCK_';
         const placeholderSuffix = '__';
@@ -3206,9 +3207,12 @@ function processTranslationText(originalText, translatedText) {
                 if (placeholderRegexSingle.test(templateLine)) {
                     // Placeholder 복원 - HTML 이스케이프 처리
                     let restoredBlock = specialBlocksMap[templateLine];
-                    // 코드 블록인 경우 HTML 이스케이프 처리
-                    if (restoredBlock && restoredBlock.match(/^```[^\r\n]*\r?\n[\s\S]*?\r?\n```$/)) {
-                        restoredBlock = restoredBlock.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    // 코드 블록인 경우 HTML 이스케이프 처리 (마크다운 또는 HTML 형태)
+                    if (restoredBlock && (restoredBlock.match(/^```[^\r\n]*\r?\n[\s\S]*?\r?\n```$/) || restoredBlock.match(/<pre><code>[\s\S]*?<\/code><\/pre>/))) {
+                        // HTML 코드 블록은 이미 HTML이므로 이스케이프하지 않음, 마크다운 코드 블록만 이스케이프
+                        if (restoredBlock.match(/^```[^\r\n]*\r?\n[\s\S]*?\r?\n```$/)) {
+                            restoredBlock = restoredBlock.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        }
                     }
                     resultHtmlParts.push(restoredBlock);
                     // console.log(`${DEBUG_PREFIX} Reconstructing: Placeholder ${templateLine} -> Original Block`);
@@ -3371,9 +3375,12 @@ function processTranslationText(originalText, translatedText) {
                 const resultHtmlParts = templateLines.map(line => {
                     if (placeholderRegexSingle.test(line)) {
                         let restoredBlock = specialBlocksMap[line];
-                        // 코드 블록인 경우 HTML 이스케이프 처리
-                        if (restoredBlock && restoredBlock.match(/^```[^\r\n]*\r?\n[\s\S]*?\r?\n```$/)) {
-                            restoredBlock = restoredBlock.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        // 코드 블록인 경우 HTML 이스케이프 처리 (마크다운 또는 HTML 형태)
+                        if (restoredBlock && (restoredBlock.match(/^```[^\r\n]*\r?\n[\s\S]*?\r?\n```$/) || restoredBlock.match(/<pre><code>[\s\S]*?<\/code><\/pre>/))) {
+                            // HTML 코드 블록은 이미 HTML이므로 이스케이프하지 않음, 마크다운 코드 블록만 이스케이프
+                            if (restoredBlock.match(/^```[^\r\n]*\r?\n[\s\S]*?\r?\n```$/)) {
+                                restoredBlock = restoredBlock.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            }
                         }
                         return restoredBlock;
                     }
