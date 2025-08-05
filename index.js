@@ -2687,6 +2687,125 @@ async function getTranslationById(messageIdStr) {
 }
 
 /**
+ * 지정된 범위의 메시지들의 번역문을 가져옵니다.
+ * @param {string} startIdStr - 시작 메시지 ID (문자열 형태)
+ * @param {string} endIdStr - 종료 메시지 ID (문자열 형태)
+ * @param {boolean} includeOriginal - 번역문이 없을 때 원문 포함 여부
+ * @param {boolean} includeMessageId - 메시지 ID 출력 여부
+ * @returns {Promise<string>} 범위 내 번역문들을 연결한 결과
+ */
+async function getTranslationsInRange(startIdStr, endIdStr, includeOriginal = false, includeMessageId = false) {
+    const DEBUG_PREFIX = `[${extensionName} - GetTranslationsInRange]`;
+    logDebug(`${DEBUG_PREFIX} Getting translations from ${startIdStr} to ${endIdStr}`);
+
+    // 1. 메시지 ID 파싱 및 유효성 검사
+    let startId = parseInt(startIdStr, 10);
+    let endId = parseInt(endIdStr, 10);
+
+    if (isNaN(startId) || isNaN(endId) || startId < 0 || endId < 0) {
+        const errorMsg = `유효하지 않은 메시지 ID 범위: "${startIdStr}" ~ "${endIdStr}". 숫자를 입력하세요.`;
+        logDebug(errorMsg);
+        return errorMsg;
+    }
+
+    // 범위 순서 확인 및 수정
+    if (startId > endId) {
+        [startId, endId] = [endId, startId];
+        logDebug(`${DEBUG_PREFIX} Swapped range order: ${startId} to ${endId}`);
+    }
+
+    // 2. 컨텍스트 및 채팅 데이터 확인
+    const context = getContext();
+    if (!context || !context.chat) {
+        const errorMsg = '컨텍스트 또는 채팅 데이터를 찾을 수 없습니다.';
+        logDebug(errorMsg);
+        return `오류: ${errorMsg}`;
+    }
+
+    const chatLength = context.chat.length;
+    if (startId >= chatLength) {
+        const errorMsg = `시작 메시지 ID ${startId}를 찾을 수 없습니다. (채팅 길이: ${chatLength})`;
+        logDebug(errorMsg);
+        return errorMsg;
+    }
+
+    // 종료 ID가 범위를 벗어나면 마지막 메시지로 조정
+    if (endId >= chatLength) {
+        endId = chatLength - 1;
+        logDebug(`${DEBUG_PREFIX} Adjusted end ID to ${endId} (chat length: ${chatLength})`);
+    }
+
+    // 3. 범위 내 메시지들의 번역문 수집
+    const results = [];
+    let translationCount = 0;
+    let originalCount = 0;
+
+    for (let messageId = startId; messageId <= endId; messageId++) {
+        const message = context.chat[messageId];
+        if (!message) {
+            logDebug(`${DEBUG_PREFIX} Message ${messageId} not found, skipping`);
+            continue;
+        }
+
+        // 원본 텍스트 가져오기
+        const originalText = substituteParams(message.mes, context.name1, message.name);
+        if (!originalText || originalText.trim() === '') {
+            logDebug(`${DEBUG_PREFIX} Message ${messageId} has empty content, skipping`);
+            continue;
+        }
+
+        try {
+            // DB에서 번역문 조회
+            const translation = await getTranslationFromDB(originalText);
+            
+            if (translation && translation.trim() !== '') {
+                // 번역문이 있는 경우
+                if (includeMessageId) {
+                    results.push(`[메시지 ${messageId}]`);
+                }
+                results.push(translation);
+                results.push(''); // 번역문 간 구분을 위해 빈 줄 추가
+                translationCount++;
+                logDebug(`${DEBUG_PREFIX} Found translation for message ${messageId}`);
+            } else if (includeOriginal) {
+                // 번역문이 없고 원문 포함 옵션이 켜진 경우
+                if (includeMessageId) {
+                    results.push(`[메시지 ${messageId} - 원문]`);
+                }
+                results.push(originalText);
+                results.push(''); // 텍스트 간 구분을 위해 빈 줄 추가
+                originalCount++;
+                logDebug(`${DEBUG_PREFIX} Using original text for message ${messageId}`);
+            }
+            // includeOriginal이 false이고 번역문이 없으면 해당 메시지는 건너뜀
+        } catch (error) {
+            logDebug(`${DEBUG_PREFIX} Error getting translation for message ${messageId}:`, error);
+            if (includeOriginal) {
+                if (includeMessageId) {
+                    results.push(`[메시지 ${messageId} - 원문 (오류로 인한 대체)]`);
+                }
+                results.push(originalText);
+                results.push(''); // 텍스트 간 구분을 위해 빈 줄 추가
+                originalCount++;
+            }
+        }
+    }
+
+    // 4. 결과 반환
+    if (results.length === 0) {
+        const noResultMsg = `메시지 ID ${startId}~${endId} 범위에서 ${includeOriginal ? '텍스트' : '번역문'}를 찾을 수 없습니다.`;
+        logDebug(`${DEBUG_PREFIX} ${noResultMsg}`);
+        return noResultMsg;
+    }
+
+    const resultText = results.join('\n');
+    const summaryMsg = `메시지 ID ${startId}~${endId} 범위: 번역문 ${translationCount}개${includeOriginal ? `, 원문 ${originalCount}개` : ''} 추출 완료`;
+    logDebug(`${DEBUG_PREFIX} ${summaryMsg}`);
+    
+    return resultText;
+}
+
+/**
  * 지정된 메시지 ID에 해당하는 번역 데이터를 IndexedDB에서 삭제합니다.
  * @param {string} messageIdStr - 삭제할 메시지의 ID (문자열 형태)
  * @param {string} swipeNumberStr - 선택적 스와이프 번호 (문자열 형태)
@@ -3773,7 +3892,7 @@ SlashCommandParser.addCommandObject(SlashCommand.fromProps({
         }
 
         try {
-            const translatedText = await llmTranslate(textToTranslate, prompt, '', false, false);
+            const translatedText = await translate(textToTranslate, { prompt: prompt });
             return translatedText;
         } catch (error) {
             console.error('LLMTranslate Slash Command Error:', error);
@@ -3781,6 +3900,74 @@ SlashCommandParser.addCommandObject(SlashCommand.fromProps({
         }
     },
     returns: ARGUMENT_TYPE.STRING,
+}));
+
+// 범위 지정 번역문 가져오기 커맨드
+SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+    name: 'llmGetTranslations',
+    callback: async (parsedArgs) => {
+        const DEBUG_PREFIX_CMD = `[${extensionName} - Cmd /llmGetTranslations]`;
+        logDebug(`${DEBUG_PREFIX_CMD} Executing with args:`, parsedArgs);
+
+        let startIdStr = parsedArgs.startId || '0';
+        let endIdStr = parsedArgs.endId || '{{lastMessageId}}';
+        const includeOriginal = parsedArgs.includeOriginal === 'true'; // 기본값은 false
+        const includeMessageId = parsedArgs.includeMessageId === 'true'; // 기본값은 false
+
+        // 'last' 및 매크로 처리
+        if (endIdStr === '{{lastMessageId}}' || endIdStr === 'last') {
+            const context = getContext();
+            if (!context || !context.chat || context.chat.length === 0) {
+                return '오류: 채팅 메시지가 없습니다.';
+            }
+            endIdStr = String(context.chat.length - 1);
+            logDebug(`${DEBUG_PREFIX_CMD} 'last' converted to endId: ${endIdStr}`);
+        }
+
+        if (startIdStr === 'last') {
+            const context = getContext();
+            if (!context || !context.chat || context.chat.length === 0) {
+                return '오류: 채팅 메시지가 없습니다.';
+            }
+            startIdStr = String(context.chat.length - 1);
+            logDebug(`${DEBUG_PREFIX_CMD} 'last' converted to startId: ${startIdStr}`);
+        }
+
+        // getTranslationsInRange 함수 호출
+        return await getTranslationsInRange(startIdStr, endIdStr, includeOriginal, includeMessageId);
+    },
+    helpString: '지정한 범위의 메시지들의 번역문을 가져옵니다. 기본적으로 번역문만 ID 없이 출력합니다.\n사용법: /llmGetTranslations [startId=<시작ID>] [endId=<종료ID>] [includeOriginal=true/false] [includeMessageId=true/false]',
+    namedArgumentList: [
+        SlashCommandNamedArgument.fromProps({
+            name: 'startId',
+            description: '시작 메시지 ID (기본값: 0)',
+            isRequired: false,
+            defaultValue: '0',
+            typeList: [ARGUMENT_TYPE.STRING],
+        }),
+        SlashCommandNamedArgument.fromProps({
+            name: 'endId',
+            description: '종료 메시지 ID (기본값: 마지막 메시지)',
+            isRequired: false,
+            defaultValue: '{{lastMessageId}}',
+            typeList: [ARGUMENT_TYPE.STRING],
+        }),
+        SlashCommandNamedArgument.fromProps({
+            name: 'includeOriginal',
+            description: '번역문이 없을 때 원문 포함 여부 (기본값: false)',
+            isRequired: false,
+            defaultValue: 'false',
+            typeList: [ARGUMENT_TYPE.STRING],
+        }),
+        SlashCommandNamedArgument.fromProps({
+            name: 'includeMessageId',
+            description: '메시지 ID 출력 여부 (기본값: false)',
+            isRequired: false,
+            defaultValue: 'false',
+            typeList: [ARGUMENT_TYPE.STRING],
+        }),
+    ],
+    returns: '범위 내 번역문들을 연결한 텍스트',
 }));
 
 
