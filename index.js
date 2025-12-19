@@ -787,6 +787,8 @@ async function retranslateMessage(messageId, promptType, forceRetranslate = fals
             await deleteTranslationByOriginalText(originalText);
             await addTranslationToDB(originalText, retranslation);
             message.extra.display_text = processTranslationText(originalText, retranslation);
+            // 현재 원문을 저장 (메시지 수정 시 이전 원문의 번역을 삭제하기 위해)
+            message.extra.original_text_for_translation = originalText;
             updateMessageBlock(messageId, message);
             await context.saveChat();
             
@@ -873,6 +875,8 @@ async function translateMessage(messageId, forceTranslate = false, source = 'man
             
             if (cachedTranslation) {
                 message.extra.display_text = processTranslationText(originalText, cachedTranslation);
+                // 현재 원문을 저장 (메시지 수정 시 이전 원문의 번역을 삭제하기 위해)
+                message.extra.original_text_for_translation = originalText;
                 if (source !== 'auto') {
                     toastr.info('IndexedDB에서 번역문을 가져왔습니다.');
                 }
@@ -882,6 +886,9 @@ async function translateMessage(messageId, forceTranslate = false, source = 'man
                 await addTranslationToDB(originalText, translation);
                 message.extra.display_text = processTranslationText(originalText, translation);
             }
+            
+            // 현재 원문을 저장 (메시지 수정 시 이전 원문의 번역을 삭제하기 위해)
+            message.extra.original_text_for_translation = originalText;
             
             updateMessageBlock(messageId, message);
             await context.saveChat();
@@ -1536,7 +1543,7 @@ const handleIncomingMessage = createEventHandler(translateIncomingMessage, shoul
 const handleOutgoingMessage = createEventHandler(translateOutgoingMessage, shouldTranslate);
 
 // 메시지 수정 시 번역문 정리 (공식 스크립트 스타일)
-function handleMessageEdit(messageId) {
+async function handleMessageEdit(messageId) {
     const context = getContext();
     const message = context.chat[messageId];
     
@@ -1545,6 +1552,22 @@ function handleMessageEdit(messageId) {
     // 메시지 수정시 기존 번역문 초기화
     if (message.extra?.display_text) {
         logDebug(`Message ${messageId} was edited, clearing translation data`);
+        
+        // 이전 원문이 저장되어 있으면 DB에서 해당 번역 삭제
+        if (message.extra.original_text_for_translation) {
+            try {
+                await deleteTranslationByOriginalText(message.extra.original_text_for_translation);
+                logDebug(`Deleted translation for previous original text: "${message.extra.original_text_for_translation.substring(0, 50)}..."`);
+            } catch (error) {
+                // DB에 해당 번역이 없을 수도 있음 (이미 삭제되었거나 없는 경우)
+                if (error.message !== 'no matching data') {
+                    console.warn(`Failed to delete translation for previous original text:`, error);
+                }
+            }
+            // 저장된 이전 원문도 삭제
+            delete message.extra.original_text_for_translation;
+        }
+        
         delete message.extra.display_text;
         
         // UI도 즉시 업데이트
