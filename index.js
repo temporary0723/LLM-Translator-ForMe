@@ -1551,33 +1551,54 @@ async function handleMessageEdit(messageId) {
     
     // 메시지 수정시 기존 번역문 초기화
     if (message.extra?.display_text) {
-        logDebug(`Message ${messageId} was edited, clearing translation data`);
+        // 현재 메시지의 원문 가져오기 (수정 후 원문)
+        const currentOriginalText = substituteParams(message.mes, context.name1, message.name);
         
-        // 이전 원문이 저장되어 있으면 DB에서 해당 번역 삭제
-        if (message.extra.original_text_for_translation) {
+        // 저장된 이전 원문과 비교하여 실제로 수정되었는지 확인
+        const previousOriginalText = message.extra.original_text_for_translation;
+        
+        if (previousOriginalText && previousOriginalText !== currentOriginalText) {
+            // 실제로 원문이 변경된 경우에만 이전 원문의 번역 삭제
             try {
-                await deleteTranslationByOriginalText(message.extra.original_text_for_translation);
-                logDebug(`Deleted translation for previous original text: "${message.extra.original_text_for_translation.substring(0, 50)}..."`);
+                await deleteTranslationByOriginalText(previousOriginalText);
+                logDebug(`Message ${messageId} was actually edited. Deleted translation for previous original text: "${previousOriginalText.substring(0, 50)}..."`);
             } catch (error) {
                 // DB에 해당 번역이 없을 수도 있음 (이미 삭제되었거나 없는 경우)
                 if (error.message !== 'no matching data') {
                     console.warn(`Failed to delete translation for previous original text:`, error);
                 }
             }
-            // 저장된 이전 원문도 삭제
-            delete message.extra.original_text_for_translation;
-        }
-        
-        delete message.extra.display_text;
-        
-        // UI도 즉시 업데이트
-        updateMessageBlock(messageId, message);
-        
-        // 자동 번역이 켜져있으면 새로 번역
-        if (shouldTranslate()) {
-            setTimeout(() => {
-                translateIncomingMessage(messageId);
-            }, 100); // 약간의 지연을 두어 UI 업데이트 후 번역
+            
+            // display_text 삭제 (실제로 수정된 경우에만)
+            delete message.extra.display_text;
+            
+            // 현재 원문을 저장 (나중에 또 수정될 수 있으므로)
+            message.extra.original_text_for_translation = currentOriginalText;
+            
+            // UI도 즉시 업데이트
+            updateMessageBlock(messageId, message);
+            
+            // 자동 번역이 켜져있으면 새로 번역
+            if (shouldTranslate()) {
+                setTimeout(() => {
+                    translateIncomingMessage(messageId);
+                }, 100); // 약간의 지연을 두어 UI 업데이트 후 번역
+            }
+        } else if (previousOriginalText && previousOriginalText === currentOriginalText) {
+            // 수정 버튼을 눌렀지만 실제로는 수정하지 않은 경우
+            // 아무것도 하지 않음 (번역 데이터 유지)
+            logDebug(`Message ${messageId} edit button was clicked but no actual changes were made. Keeping translation data.`);
+        } else {
+            // previousOriginalText가 없는 경우 (번역이 있었지만 원문 추적이 안 된 경우)
+            // 기존 동작 유지
+            delete message.extra.display_text;
+            updateMessageBlock(messageId, message);
+            
+            if (shouldTranslate()) {
+                setTimeout(() => {
+                    translateIncomingMessage(messageId);
+                }, 100);
+            }
         }
     }
 }
