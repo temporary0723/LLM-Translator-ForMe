@@ -3724,8 +3724,8 @@ function processTranslationText(originalText, translatedText) {
                         const isCodeBlock = originalBlock.trim().startsWith('```');
                         
                         if (isCodeBlock) {
-                            // 코드 블록은 번역하지 않고 원본만 표시
-                            resultHtmlParts.push(originalBlock);
+                            // 코드 블록은 details 없이 번역문 그대로 표시
+                            resultHtmlParts.push(translatedBlock);
                         } else {
                             // 일반 특수 블록은 details 구조로 감싸기
                             let blockHTML = '';
