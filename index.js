@@ -3511,31 +3511,31 @@ function processTranslationText(originalText, translatedText) {
             textWithPlaceholders = textWithPlaceholders.replace(regex, (match) => {
                 const placeholder = `${placeholderPrefix}${placeholderIndex}${placeholderSuffix}`;
                 specialBlocksMap[placeholder] = match;
-                // console.log(`${DEBUG_PREFIX} Found & Replacing: ${placeholder} ->`, match.substring(0, 50) + '...');
+                console.log(`${DEBUG_PREFIX} Found & Replacing: ${placeholder} ->`, match.substring(0, 50) + '...');
                 placeholderIndex++;
                 return placeholder;
             });
         });
-        // console.log(`${DEBUG_PREFIX} Text with Placeholders:`, textWithPlaceholders);
-        // console.log(`${DEBUG_PREFIX} Special Blocks Map:`, specialBlocksMap);
+        console.log(`${DEBUG_PREFIX} Text with Placeholders:`, textWithPlaceholders);
+        console.log(`${DEBUG_PREFIX} Special Blocks Map:`, specialBlocksMap);
 
         // 5. 텍스트 전처리 (<br> -> \n, trim)
         let processedTextWithPlaceholders = (textWithPlaceholders || '').replace(/<br\s*\/?>/gi, '\n').trim();
         let processedTranslated = (translatedText || '').replace(/<br\s*\/?>/gi, '\n').trim();
         let proseOnlyOriginalText = processedTextWithPlaceholders.replace(placeholderRegexGlobal, '').trim();
 
-        // console.log(`${DEBUG_PREFIX} Processed Text w/ Placeholders (for template split):`, processedTextWithPlaceholders);
-        // console.log(`${DEBUG_PREFIX} Processed Translated Text (for split):`, processedTranslated);
-        // console.log(`${DEBUG_PREFIX} Processed Prose Only Original (for matching split):`, proseOnlyOriginalText);
+        console.log(`${DEBUG_PREFIX} Processed Text w/ Placeholders (for template split):`, processedTextWithPlaceholders);
+        console.log(`${DEBUG_PREFIX} Processed Translated Text (for split):`, processedTranslated);
+        console.log(`${DEBUG_PREFIX} Processed Prose Only Original (for matching split):`, proseOnlyOriginalText);
 
         // 6. 라인 분리 및 정리
         const templateLines = processedTextWithPlaceholders.split('\n').map(line => line.trim());
         const proseOriginalLines = proseOnlyOriginalText.split('\n').map(line => line.trim()).filter(line => line !== '');
         const translatedLines = processedTranslated.split('\n').map(line => line.trim()).filter(line => line !== '');
 
-        // console.log(`${DEBUG_PREFIX} Template Lines:`, templateLines, `Count: ${templateLines.length}`);
-        // console.log(`${DEBUG_PREFIX} Prose Original Lines:`, proseOriginalLines, `Count: ${proseOriginalLines.length}`);
-        // console.log(`${DEBUG_PREFIX} Translated Lines:`, translatedLines, `Count: ${translatedLines.length}`);
+        console.log(`${DEBUG_PREFIX} Template Lines:`, templateLines, `Count: ${templateLines.length}`);
+        console.log(`${DEBUG_PREFIX} Prose Original Lines:`, proseOriginalLines, `Count: ${proseOriginalLines.length}`);
+        console.log(`${DEBUG_PREFIX} Translated Lines:`, translatedLines, `Count: ${translatedLines.length}`);
 
         // 7. 라인 수 일치 확인 및 처리 경로 분기
         const forceSequentialMatching = extensionSettings.force_sequential_matching;
@@ -3544,7 +3544,7 @@ function processTranslationText(originalText, translatedText) {
         
         if (canProcessLineByLine) {
             // 7a. 성공 경로: 라인 수 일치 (본문 라인 1개 이상)
-            // console.log(`${DEBUG_PREFIX} Line counts match (${proseOriginalLines.length}). Generating ${displayMode} HTML...`);
+            console.log(`${DEBUG_PREFIX} Line counts match (${proseOriginalLines.length}). Generating ${displayMode} HTML...`);
             
             // 순차 매칭 사용시 토스트 표시
             if (forceSequentialMatching && proseOriginalLines.length !== translatedLines.length && proseOriginalLines.length > 0 && translatedLines.length > 0) {
