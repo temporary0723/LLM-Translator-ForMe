@@ -3736,13 +3736,57 @@ function processTranslationText(originalText, translatedText) {
         } else {
             // 7b. Fallback 경로: 라인 수 불일치 또는 본문 라인 0개
             if (proseOriginalLines.length === 0 && translatedLines.length === 0 && templateLines.some(line => placeholderRegexSingle.test(line))) {
-                // 특수 블록만 있는 경우: Placeholder만 복원 (모드 무관)
-                // console.log(`${DEBUG_PREFIX} Fallback Case: Only special blocks found. Reconstructing blocks only.`);
-                const resultHtmlParts = templateLines.map(line => {
-                    return placeholderRegexSingle.test(line) ? specialBlocksMap[line] : line;
-                });
+                // 특수 블록만 있는 경우: 원문/번역문 placeholder를 details로 변환
+                console.log(`${DEBUG_PREFIX} Fallback Case: Only special blocks found. Converting to details mode.`);
+                
+                const translatedTemplateLines = processedTranslated.split('\n').map(line => line.trim());
+                const translatedPlaceholderRegexSingle = new RegExp('^' + placeholderPrefix + 'TRANSLATED_\\d+' + placeholderSuffix + '$');
+                
+                const resultHtmlParts = [];
+                for (let i = 0; i < templateLines.length; i++) {
+                    const origLine = templateLines[i];
+                    const transLine = translatedTemplateLines[i];
+                    
+                    if (placeholderRegexSingle.test(origLine) && transLine && translatedPlaceholderRegexSingle.test(transLine)) {
+                        // 원문과 번역문 placeholder를 details로 변환
+                        const originalBlock = specialBlocksMap[origLine];
+                        const translatedBlock = translatedBlocksMap[transLine];
+                        
+                        let blockHTML = '';
+                        if (displayMode === 'folded') {
+                            blockHTML =
+                                '<details class="llm-translator-details mode-folded">' +
+                                    '<summary class="llm-translator-summary">' +
+                                        '<span class="translated_text clickable-text-org">' + translatedBlock + '</span>' +
+                                    '</summary>' +
+                                    '<span class="original_text">' + originalBlock + '</span>' +
+                                '</details>';
+                        } else if (displayMode === 'original_first') {
+                            blockHTML =
+                                '<details class="llm-translator-details mode-original-first">' +
+                                    '<summary class="llm-translator-summary">' +
+                                        '<span class="original_text clickable-text-org">' + originalBlock + '</span>' +
+                                    '</summary>' +
+                                    '<span class="translated_text">' + translatedBlock + '</span>' +
+                                '</details>';
+                        } else { // unfolded
+                            blockHTML =
+                                '<span class="translated_text mode-unfolded">' + translatedBlock + '</span>' +
+                                '<br>' +
+                                '<span class="original_text mode-unfolded">' + originalBlock + '</span>';
+                        }
+                        resultHtmlParts.push(blockHTML);
+                    } else if (placeholderRegexSingle.test(origLine)) {
+                        // 원문만 placeholder인 경우
+                        resultHtmlParts.push(specialBlocksMap[origLine]);
+                    } else {
+                        // 일반 텍스트
+                        resultHtmlParts.push(origLine);
+                    }
+                }
+                
                 const finalHtmlResult = resultHtmlParts.join('\n').trim();
-                // console.log(`${DEBUG_PREFIX} Final Reconstructed HTML (Special Blocks Only):`, finalHtmlResult);
+                console.log(`${DEBUG_PREFIX} Final Reconstructed HTML (Special Blocks as Details):`, finalHtmlResult);
                 return finalHtmlResult;
 
             } else {
