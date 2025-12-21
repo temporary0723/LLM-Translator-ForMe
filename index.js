@@ -3388,7 +3388,7 @@ function processTranslationText(originalText, translatedText) {
             /<thinking>[\s\S]*?<\/thinking>/gi,
             /<tableEdit>[\s\S]*?<\/tableEdit>/gi,
             /<details[^>]*>[\s\S]*?<\/details>/gi,
-            /```[\s\S]*?```/g
+            /`{3,}[^`]*[\s\S]*?`{3,}/g  // 3개 이상의 백틱, non-greedy
         ];
         
         // Font Manager의 커스텀 태그를 동적으로 추가
@@ -3430,14 +3430,21 @@ function processTranslationText(originalText, translatedText) {
         // console.log(`${DEBUG_PREFIX} Defined Special Block Regexes:`, specialBlockRegexes.map(r => r.toString()));
 
         // 4. 특수 블록 추출 및 Placeholder 삽입
-        specialBlockRegexes.forEach(regex => {
+        console.log('[LLM-Translator CODE BLOCK DEBUG] 원본 텍스트 처음 100자:', originalText?.substring(0, 100));
+        specialBlockRegexes.forEach((regex, idx) => {
+            const beforeCount = (textWithPlaceholders.match(regex) || []).length;
             textWithPlaceholders = textWithPlaceholders.replace(regex, (match) => {
                 const placeholder = `${placeholderPrefix}${placeholderIndex}${placeholderSuffix}`;
                 specialBlocksMap[placeholder] = match;
+                console.log(`[LLM-Translator CODE BLOCK DEBUG] Regex ${idx} 매칭됨! Placeholder: ${placeholder}, 매칭 내용 처음 50자:`, match.substring(0, 50));
                 placeholderIndex++;
                 return placeholder;
             });
+            if (beforeCount > 0) {
+                console.log(`[LLM-Translator CODE BLOCK DEBUG] Regex ${idx}: ${beforeCount}개 매칭됨`);
+            }
         });
+        console.log('[LLM-Translator CODE BLOCK DEBUG] Placeholder 처리 후 텍스트 처음 200자:', textWithPlaceholders.substring(0, 200));
 
         // 번역문도 같은 방식으로 placeholder 처리
         let translatedWithPlaceholders = translatedText || '';
