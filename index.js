@@ -3577,11 +3577,40 @@ function processTranslationText(originalText, translatedText) {
             const resultHtmlParts = [];
             let proseLineIndex = 0;
 
-            for (const templateLine of templateLines) {
-                if (placeholderRegexSingle.test(templateLine)) {
-                    // Placeholder 복원
-                    resultHtmlParts.push(specialBlocksMap[templateLine]);
-                    // console.log(`${DEBUG_PREFIX} Reconstructing: Placeholder ${templateLine} -> Original Block`);
+            for (let i = 0; i < templateLines.length; i++) {
+                const templateLine = templateLines[i];
+                const translatedTemplateLine = translatedTemplateLines[i];
+                
+                if (placeholderRegexSingle.test(templateLine) && translatedPlaceholderRegexSingle.test(translatedTemplateLine)) {
+                    // Placeholder를 details 구조로 감싸기
+                    const originalBlock = specialBlocksMap[templateLine];
+                    const translatedBlock = translatedBlocksMap[translatedTemplateLine];
+                    
+                    let blockHTML = '';
+                    if (displayMode === 'folded') {
+                        blockHTML =
+                            '<details class="llm-translator-details mode-folded">' +
+                                '<summary class="llm-translator-summary">' +
+                                    '<span class="translated_text clickable-text-org">' + translatedBlock + '</span>' +
+                                '</summary>' +
+                                '<span class="original_text">' + originalBlock + '</span>' +
+                            '</details>';
+                    } else if (displayMode === 'original_first') {
+                        blockHTML =
+                            '<details class="llm-translator-details mode-original-first">' +
+                                '<summary class="llm-translator-summary">' +
+                                    '<span class="original_text clickable-text-org">' + originalBlock + '</span>' +
+                                '</summary>' +
+                                '<span class="translated_text">' + translatedBlock + '</span>' +
+                            '</details>';
+                    } else { // unfolded 모드
+                        blockHTML =
+                            '<span class="translated_text mode-unfolded">' + translatedBlock + '</span>' +
+                            '<br>' +
+                            '<span class="original_text mode-unfolded">' + originalBlock + '</span>';
+                    }
+                    resultHtmlParts.push(blockHTML);
+                    console.log(`${DEBUG_PREFIX} Reconstructing: Placeholder ${templateLine} -> Details Block`);
                 } else if (templateLine === '') {
                     // 빈 라인 유지
                     resultHtmlParts.push('');
