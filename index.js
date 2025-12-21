@@ -935,8 +935,6 @@ async function translateMessage(messageId, forceTranslate = false, source = 'man
 
 // 원문과 번역문 토글
 async function toggleOriginalText(messageId) {
-    console.log(`[LLM-Translator DEBUG] toggleOriginalText 시작 (messageId: ${messageId})`);
-    
     const context = getContext();
     const message = context.chat[messageId];
     if (!message?.extra?.display_text) return;
@@ -945,19 +943,15 @@ async function toggleOriginalText(messageId) {
     const textBlock = messageBlock.find('.mes_text');
     const isCurrentlyShowingOriginal = textBlock.data('showing-original');
 
-    console.log(`[LLM-Translator DEBUG] 현재 상태: ${isCurrentlyShowingOriginal ? '원문 표시 중' : '번역문 표시 중'}`);
-
     if (isCurrentlyShowingOriginal) {
         // 원문 표시 중 → 번역문으로 전환
         if (message.extra.original_translation_backup) {
-            console.log(`[LLM-Translator DEBUG] 백업된 번역문 복원`);
             message.extra.display_text = message.extra.original_translation_backup;
             delete message.extra.original_translation_backup;
         }
     } else {
         // 번역문 표시 중 → 원문으로 전환
         if (!message.extra.original_translation_backup) {
-            console.log(`[LLM-Translator DEBUG] 번역문 백업`);
             message.extra.original_translation_backup = message.extra.display_text;
         }
         const originalText = substituteParams(message.mes, context.name1, message.name);
@@ -968,26 +962,19 @@ async function toggleOriginalText(messageId) {
 
     // updateMessageBlock 후 DOM이 완전히 업데이트된 후 플래그 설정
     setTimeout(() => {
-        console.log(`[LLM-Translator DEBUG] setTimeout 실행 - showing-original 플래그 토글`);
         const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
         const textBlock = messageBlock.find('.mes_text');
         textBlock.data('showing-original', !isCurrentlyShowingOriginal);
-        console.log(`[LLM-Translator DEBUG] 플래그 설정 완료: ${textBlock.data('showing-original')}`);
     }, 100);
-
-    console.log(`[LLM-Translator DEBUG] toggleOriginalText 종료`);
 }
 
 // 현재 화면에 번역문이 표시되고 있는지 확인하는 함수
 function isTranslationCurrentlyDisplayed(messageId) {
-    console.log(`[LLM-Translator DEBUG] isTranslationCurrentlyDisplayed 호출 - messageId: ${messageId}`);
-    
     const context = getContext();
     const message = context.chat[messageId];
     
     // 번역문이 없으면 false
     if (!message?.extra?.display_text) {
-        console.log(`[LLM-Translator DEBUG] display_text 없음 → false 반환`);
         return false;
     }
     
@@ -995,38 +982,26 @@ function isTranslationCurrentlyDisplayed(messageId) {
     const textBlock = messageBlock.find('.mes_text');
     const showingOriginalFlag = textBlock.data('showing-original');
     
-    console.log(`[LLM-Translator DEBUG] showing-original 플래그: ${showingOriginalFlag} (타입: ${typeof showingOriginalFlag})`);
-    
     // showing-original 플래그가 명시적으로 true이면 원문 표시 중
     if (showingOriginalFlag === true) {
-        console.log(`[LLM-Translator DEBUG] 플래그 = true (원문 표시 중) → false 반환`);
         return false;
     }
     
     // showing-original 플래그가 명시적으로 false이면 번역문 표시 중  
     if (showingOriginalFlag === false) {
-        console.log(`[LLM-Translator DEBUG] 플래그 = false (번역문 표시 중) → true 반환`);
         return true;
     }
     
     // showing-original 플래그가 설정되지 않은 경우 (초기 번역 후 상태)
     // 현재 화면에 표시된 텍스트와 원본 메시지 텍스트를 비교
-    console.log(`[LLM-Translator DEBUG] 플래그 없음 → 폴백 로직 실행`);
-    
     const originalText = substituteParams(message.mes, context.name1, message.name);
     const currentDisplayedHtml = textBlock.html();
-    
-    console.log(`[LLM-Translator DEBUG] 원본 텍스트: "${originalText.substring(0, 100)}..."`);
-    console.log(`[LLM-Translator DEBUG] 현재 HTML (처리 전): "${currentDisplayedHtml.substring(0, 200)}..."`);
     
     // HTML에서 텍스트만 추출하여 비교
     // Font Manager 등 다른 확장이 추가한 태그를 제거하여 정확한 비교
     const tempDiv = $('<div>').html(currentDisplayedHtml);
     
     // Font Manager가 추가한 커스텀 태그 폰트 span 제거
-    const customTagSpans = tempDiv.find('[data-custom-tag-font]');
-    console.log(`[LLM-Translator DEBUG] Font Manager 태그 개수: ${customTagSpans.length}`);
-    
     tempDiv.find('[data-custom-tag-font]').each(function() {
         $(this).replaceWith($(this).html());
     });
@@ -1034,15 +1009,8 @@ function isTranslationCurrentlyDisplayed(messageId) {
     const currentDisplayedText = tempDiv.text().trim();
     const originalTextTrimmed = originalText.trim();
     
-    console.log(`[LLM-Translator DEBUG] 현재 표시 텍스트 (처리 후): "${currentDisplayedText.substring(0, 100)}..."`);
-    console.log(`[LLM-Translator DEBUG] 원본 텍스트 (trim): "${originalTextTrimmed.substring(0, 100)}..."`);
-    console.log(`[LLM-Translator DEBUG] 텍스트 비교: ${currentDisplayedText === originalTextTrimmed ? '같음' : '다름'}`);
-    
     // 현재 표시된 텍스트가 원본과 같으면 원문 표시 중, 다르면 번역문 표시 중
-    const result = currentDisplayedText !== originalTextTrimmed;
-    console.log(`[LLM-Translator DEBUG] 최종 반환값: ${result} (${result ? '번역문 표시 중' : '원문 표시 중'})`);
-    
-    return result;
+    return currentDisplayedText !== originalTextTrimmed;
 }
 
 // messageId 유효성 검사 및 기본값 처리 함수
@@ -1092,8 +1060,6 @@ function updateButtonVisibility() {
 
 // 번역문이 표시되고 있을 때 원문으로 전환하는 함수
 async function showOriginalText(messageId) {
-    console.log(`[LLM-Translator DEBUG] showOriginalText 시작 (messageId: ${messageId})`);
-    
     const context = getContext();
     const message = context.chat[messageId];
     if (!message?.extra?.display_text) return;
@@ -1101,73 +1067,51 @@ async function showOriginalText(messageId) {
     // 번역문을 백업 (나중에 복원하기 위해)
     if (!message.extra.original_translation_backup) {
         message.extra.original_translation_backup = message.extra.display_text;
-        console.log(`[LLM-Translator DEBUG] 번역문 백업: "${message.extra.original_translation_backup.substring(0, 100)}..."`);
     }
 
     // 원문으로 전환
     const originalText = substituteParams(message.mes, context.name1, message.name);
-    console.log(`[LLM-Translator DEBUG] 원문: "${originalText.substring(0, 100)}..."`);
-    
     message.extra.display_text = originalText;
 
-    console.log(`[LLM-Translator DEBUG] updateMessageBlock 호출 전`);
     await updateMessageBlock(messageId, message);
-    console.log(`[LLM-Translator DEBUG] updateMessageBlock 호출 완료`);
 
     // updateMessageBlock 후 DOM이 완전히 업데이트된 후 플래그 설정
     setTimeout(() => {
-        console.log(`[LLM-Translator DEBUG] setTimeout 실행 - showing-original 플래그를 true로 설정`);
         const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
         const textBlock = messageBlock.find('.mes_text');
         textBlock.data('showing-original', true);
-        console.log(`[LLM-Translator DEBUG] 플래그 설정 완료: ${textBlock.data('showing-original')}`);
     }, 100);
-
-    // display_text를 복원하지 않음 - 원문이 계속 표시되어야 함
-    console.log(`[LLM-Translator DEBUG] showOriginalText 종료 (display_text는 원문 유지)`);
 }
 
 // 번역 버튼 클릭 시 상태에 따른 동작 처리
 async function handleTranslateButtonClick(messageId) {
-    console.log(`[LLM-Translator DEBUG] ========== handleTranslateButtonClick 시작 (messageId: ${messageId}) ==========`);
-    
     const context = getContext();
     const message = context.chat[messageId];
     
     // 번역 진행 중 확인
     if (translationInProgress[messageId]) {
-        console.log(`[LLM-Translator DEBUG] 번역 진행 중 → 중단`);
         toastr.info('번역이 이미 진행 중입니다.');
         return;
     }
     
     // 번역문이 없는 경우 → 번역 실행
     if (!message?.extra?.display_text) {
-        console.log(`[LLM-Translator DEBUG] display_text 없음 → 번역 실행`);
         await translateMessage(messageId, true, 'handleTranslateButtonClick');
         return;
     }
-
-    console.log(`[LLM-Translator DEBUG] display_text 있음 → 상태 확인`);
-    console.log(`[LLM-Translator DEBUG] display_text 내용: "${message.extra.display_text.substring(0, 100)}..."`);
     
     // 현재 번역문이 표시되고 있는지 확인
     const isShowingTranslation = isTranslationCurrentlyDisplayed(messageId);
     
-    console.log(`[LLM-Translator DEBUG] isTranslationCurrentlyDisplayed 결과: ${isShowingTranslation}`);
-    
     if (isShowingTranslation) {
-        console.log(`[LLM-Translator DEBUG] 번역문 표시 중 → 원문으로 전환`);
         // 번역문이 표시되고 있는 경우 → 원문 표시
         await showOriginalText(messageId);
         toastr.info(`원문으로 전환했습니다 #${messageId}`);
     } else {
-        console.log(`[LLM-Translator DEBUG] 원문 표시 중 → 번역문으로 복원`);
         // 원문이 표시되고 있는 경우 → 백업된 번역문 복원
         
         // 백업된 번역문이 있으면 복원
         if (message.extra.original_translation_backup) {
-            console.log(`[LLM-Translator DEBUG] 백업된 번역문 복원: "${message.extra.original_translation_backup.substring(0, 100)}..."`);
             message.extra.display_text = message.extra.original_translation_backup;
             delete message.extra.original_translation_backup;
             
@@ -1175,16 +1119,13 @@ async function handleTranslateButtonClick(messageId) {
             
             // 번역문 표시 플래그 설정
             setTimeout(() => {
-                console.log(`[LLM-Translator DEBUG] setTimeout 실행 - showing-original 플래그를 false로 설정`);
                 const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
                 const textBlock = messageBlock.find('.mes_text');
                 textBlock.data('showing-original', false);
-                console.log(`[LLM-Translator DEBUG] 플래그 설정 완료: ${textBlock.data('showing-original')}`);
             }, 100);
             
             toastr.info(`번역문으로 전환했습니다 #${messageId}`);
         } else {
-            console.log(`[LLM-Translator DEBUG] 백업된 번역문 없음 → 재번역 실행`);
             // 백업이 없으면 재번역
             const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
             const textBlock = messageBlock.find('.mes_text');
@@ -1193,8 +1134,6 @@ async function handleTranslateButtonClick(messageId) {
             await translateMessage(messageId, true, 'handleTranslateButtonClick_retranslate');
         }
     }
-    
-    console.log(`[LLM-Translator DEBUG] ========== handleTranslateButtonClick 종료 ==========`);
 }
 
 // 전체 채팅 번역 (단순화)
@@ -3428,16 +3367,10 @@ function correctBackticks(input) {
  * @returns {string} 가공된 HTML 문자열 또는 원본 번역 텍스트
  */
 function processTranslationText(originalText, translatedText) {
-    const DEBUG_PREFIX = '[llm-translator Debug Mode]';
     const displayMode = extensionSettings.translation_display_mode || 'disabled'; // 설정값 읽기 (기본값 'disabled')
-
-    console.log(`${DEBUG_PREFIX} processTranslationText START (Mode: ${displayMode})`);
-    console.log(`${DEBUG_PREFIX} Input - Original:`, originalText?.substring(0, 200));
-    console.log(`${DEBUG_PREFIX} Input - Translated:`, translatedText?.substring(0, 200));
 
     // 1. 'disabled' 모드 처리 (가장 먼저 확인)
     if (displayMode === 'disabled') {
-        console.log(`${DEBUG_PREFIX} Mode is 'disabled'. Returning raw translated text.`);
         // translatedText가 null/undefined일 경우 빈 문자열 반환
         return translatedText || '';
     }
@@ -3445,11 +3378,8 @@ function processTranslationText(originalText, translatedText) {
     // 2. 'folded', 'original_first' 또는 'unfolded' 모드를 위한 공통 처리 시작
     // translatedText가 null, undefined, 또는 빈 문자열이면 빈 문자열 반환 (disabled 모드 외)
     if (!translatedText) {
-         console.log(`${DEBUG_PREFIX} translatedText is empty or nullish (in ${displayMode} mode). Returning empty string.`);
          return '';
     }
-
-    console.log(`${DEBUG_PREFIX} Mode is '${displayMode}'. Starting Placeholder processing...`);
 
     try {
         // 3. 특수 블록 패턴 정의 및 Placeholder 준비
@@ -3464,7 +3394,6 @@ function processTranslationText(originalText, translatedText) {
         // Font Manager의 커스텀 태그를 동적으로 추가
         try {
             const fontManagerSettings = localStorage.getItem('font-manager-settings');
-            console.log(`${DEBUG_PREFIX} Font Manager Settings:`, fontManagerSettings ? 'Found' : 'Not found');
             
             if (fontManagerSettings) {
                 const parsedSettings = JSON.parse(fontManagerSettings);
@@ -3477,20 +3406,14 @@ function processTranslationText(originalText, translatedText) {
                 // 프리셋의 customTags 우선, 없으면 전역 customTags
                 const customTags = currentPreset?.customTags ?? parsedSettings?.customTags ?? [];
                 
-                console.log(`${DEBUG_PREFIX} Current Preset ID:`, currentPresetId);
-                console.log(`${DEBUG_PREFIX} Current Preset:`, currentPreset?.name || 'None');
-                console.log(`${DEBUG_PREFIX} Font Manager Custom Tags:`, customTags);
-                
                 // 각 커스텀 태그에 대한 정규식 추가
                 customTags.forEach(tag => {
                     if (tag.tagName) {
                         const escapedTagName = tag.tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                         const tagRegex = new RegExp(`<${escapedTagName}[^>]*>([\\s\\S]*?)</${escapedTagName}>`, 'gi');
                         specialBlockRegexes.push(tagRegex);
-                        console.log(`${DEBUG_PREFIX} Added Font Manager custom tag: <${tag.tagName}> with regex: ${tagRegex}`);
                     }
                 });
-                console.log(`${DEBUG_PREFIX} Total special block regexes: ${specialBlockRegexes.length}`);
             }
         } catch (error) {
             console.error('[LLM-Translator] Failed to load Font Manager custom tags:', error);
@@ -3511,13 +3434,10 @@ function processTranslationText(originalText, translatedText) {
             textWithPlaceholders = textWithPlaceholders.replace(regex, (match) => {
                 const placeholder = `${placeholderPrefix}${placeholderIndex}${placeholderSuffix}`;
                 specialBlocksMap[placeholder] = match;
-                console.log(`${DEBUG_PREFIX} Found & Replacing: ${placeholder} ->`, match.substring(0, 50) + '...');
                 placeholderIndex++;
                 return placeholder;
             });
         });
-        console.log(`${DEBUG_PREFIX} Text with Placeholders:`, textWithPlaceholders);
-        console.log(`${DEBUG_PREFIX} Special Blocks Map:`, specialBlocksMap);
 
         // 번역문도 같은 방식으로 placeholder 처리
         let translatedWithPlaceholders = translatedText || '';
@@ -3528,14 +3448,10 @@ function processTranslationText(originalText, translatedText) {
             translatedWithPlaceholders = translatedWithPlaceholders.replace(regex, (match) => {
                 const placeholder = `${placeholderPrefix}TRANSLATED_${translatedPlaceholderIndex}${placeholderSuffix}`;
                 translatedBlocksMap[placeholder] = match;
-                console.log(`${DEBUG_PREFIX} [Translated] Found & Replacing: ${placeholder} ->`, match.substring(0, 50) + '...');
                 translatedPlaceholderIndex++;
                 return placeholder;
             });
         });
-        
-        console.log(`${DEBUG_PREFIX} Translated with Placeholders:`, translatedWithPlaceholders);
-        console.log(`${DEBUG_PREFIX} Translated Blocks Map:`, translatedBlocksMap);
 
         // 5. 텍스트 전처리 (<br> -> \n, trim)
         let processedTextWithPlaceholders = (textWithPlaceholders || '').replace(/<br\s*\/?>/gi, '\n').trim();
@@ -3547,21 +3463,11 @@ function processTranslationText(originalText, translatedText) {
         const translatedPlaceholderRegexSingle = new RegExp('^' + placeholderPrefix + 'TRANSLATED_\\d+' + placeholderSuffix + '$');
         let proseOnlyTranslatedText = processedTranslated.replace(translatedPlaceholderRegex, '').trim();
 
-        console.log(`${DEBUG_PREFIX} Processed Text w/ Placeholders (for template split):`, processedTextWithPlaceholders);
-        console.log(`${DEBUG_PREFIX} Processed Translated Text (for split):`, processedTranslated);
-        console.log(`${DEBUG_PREFIX} Processed Prose Only Original (for matching split):`, proseOnlyOriginalText);
-        console.log(`${DEBUG_PREFIX} Processed Prose Only Translated (for matching split):`, proseOnlyTranslatedText);
-
         // 6. 라인 분리 및 정리
         const templateLines = processedTextWithPlaceholders.split('\n').map(line => line.trim());
         const translatedTemplateLines = processedTranslated.split('\n').map(line => line.trim()); // 번역문 템플릿 라인
         const proseOriginalLines = proseOnlyOriginalText.split('\n').map(line => line.trim()).filter(line => line !== '');
         const translatedLines = proseOnlyTranslatedText.split('\n').map(line => line.trim()).filter(line => line !== '');
-
-        console.log(`${DEBUG_PREFIX} Template Lines:`, templateLines, `Count: ${templateLines.length}`);
-        console.log(`${DEBUG_PREFIX} Translated Template Lines:`, translatedTemplateLines, `Count: ${translatedTemplateLines.length}`);
-        console.log(`${DEBUG_PREFIX} Prose Original Lines:`, proseOriginalLines, `Count: ${proseOriginalLines.length}`);
-        console.log(`${DEBUG_PREFIX} Translated Lines:`, translatedLines, `Count: ${translatedLines.length}`);
 
         // 7. 라인 수 일치 확인 및 처리 경로 분기
         const forceSequentialMatching = extensionSettings.force_sequential_matching;
@@ -3570,7 +3476,6 @@ function processTranslationText(originalText, translatedText) {
         
         if (canProcessLineByLine) {
             // 7a. 성공 경로: 라인 수 일치 (본문 라인 1개 이상)
-            console.log(`${DEBUG_PREFIX} Line counts match (${proseOriginalLines.length}). Generating ${displayMode} HTML...`);
             
             // 순차 매칭 사용시 토스트 표시
             if (forceSequentialMatching && proseOriginalLines.length !== translatedLines.length && proseOriginalLines.length > 0 && translatedLines.length > 0) {
@@ -3613,7 +3518,6 @@ function processTranslationText(originalText, translatedText) {
                             '<span class="original_text mode-unfolded">' + originalBlock + '</span>';
                     }
                     resultHtmlParts.push(blockHTML);
-                    console.log(`${DEBUG_PREFIX} Reconstructing: Placeholder ${templateLine} -> Details Block`);
                 } else if (templateLine === '') {
                     // 빈 라인 유지
                     resultHtmlParts.push('');
@@ -3769,7 +3673,6 @@ function processTranslationText(originalText, translatedText) {
             // 7b. Fallback 경로: 라인 수 불일치 또는 본문 라인 0개
             if (proseOriginalLines.length === 0 && translatedLines.length === 0 && templateLines.some(line => placeholderRegexSingle.test(line))) {
                 // 특수 블록만 있는 경우: 원문/번역문 placeholder를 details로 변환
-                console.log(`${DEBUG_PREFIX} Fallback Case: Only special blocks found. Converting to details mode.`);
                 
                 const translatedTemplateLines = processedTranslated.split('\n').map(line => line.trim());
                 const translatedPlaceholderRegexSingle = new RegExp('^' + placeholderPrefix + 'TRANSLATED_\\d+' + placeholderSuffix + '$');
@@ -3818,7 +3721,6 @@ function processTranslationText(originalText, translatedText) {
                 }
                 
                 const finalHtmlResult = resultHtmlParts.join('\n').trim();
-                console.log(`${DEBUG_PREFIX} Final Reconstructed HTML (Special Blocks as Details):`, finalHtmlResult);
                 return finalHtmlResult;
 
             } else {
