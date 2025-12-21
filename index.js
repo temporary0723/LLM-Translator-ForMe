@@ -3431,13 +3431,13 @@ function processTranslationText(originalText, translatedText) {
     const DEBUG_PREFIX = '[llm-translator Debug Mode]';
     const displayMode = extensionSettings.translation_display_mode || 'disabled'; // 설정값 읽기 (기본값 'disabled')
 
-    // console.log(`${DEBUG_PREFIX} processTranslationText START (Mode: ${displayMode})`);
-    // console.log(`${DEBUG_PREFIX} Input - Original:`, originalText);
-    // console.log(`${DEBUG_PREFIX} Input - Translated:`, translatedText);
+    console.log(`${DEBUG_PREFIX} processTranslationText START (Mode: ${displayMode})`);
+    console.log(`${DEBUG_PREFIX} Input - Original:`, originalText?.substring(0, 200));
+    console.log(`${DEBUG_PREFIX} Input - Translated:`, translatedText?.substring(0, 200));
 
     // 1. 'disabled' 모드 처리 (가장 먼저 확인)
     if (displayMode === 'disabled') {
-        // console.log(`${DEBUG_PREFIX} Mode is 'disabled'. Returning raw translated text.`);
+        console.log(`${DEBUG_PREFIX} Mode is 'disabled'. Returning raw translated text.`);
         // translatedText가 null/undefined일 경우 빈 문자열 반환
         return translatedText || '';
     }
@@ -3445,11 +3445,11 @@ function processTranslationText(originalText, translatedText) {
     // 2. 'folded', 'original_first' 또는 'unfolded' 모드를 위한 공통 처리 시작
     // translatedText가 null, undefined, 또는 빈 문자열이면 빈 문자열 반환 (disabled 모드 외)
     if (!translatedText) {
-         // console.log(`${DEBUG_PREFIX} translatedText is empty or nullish (in ${displayMode} mode). Returning empty string.`);
+         console.log(`${DEBUG_PREFIX} translatedText is empty or nullish (in ${displayMode} mode). Returning empty string.`);
          return '';
     }
 
-    // console.log(`${DEBUG_PREFIX} Mode is '${displayMode}'. Starting Placeholder processing...`);
+    console.log(`${DEBUG_PREFIX} Mode is '${displayMode}'. Starting Placeholder processing...`);
 
     try {
         // 3. 특수 블록 패턴 정의 및 Placeholder 준비
@@ -3464,9 +3464,12 @@ function processTranslationText(originalText, translatedText) {
         // Font Manager의 커스텀 태그를 동적으로 추가
         try {
             const fontManagerSettings = localStorage.getItem('font-manager-settings');
+            console.log(`${DEBUG_PREFIX} Font Manager Settings:`, fontManagerSettings ? 'Found' : 'Not found');
+            
             if (fontManagerSettings) {
                 const parsedSettings = JSON.parse(fontManagerSettings);
                 const customTags = parsedSettings?.customTags || [];
+                console.log(`${DEBUG_PREFIX} Font Manager Custom Tags:`, customTags);
                 
                 // 각 커스텀 태그에 대한 정규식 추가
                 customTags.forEach(tag => {
@@ -3474,12 +3477,13 @@ function processTranslationText(originalText, translatedText) {
                         const escapedTagName = tag.tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                         const tagRegex = new RegExp(`<${escapedTagName}[^>]*>([\\s\\S]*?)</${escapedTagName}>`, 'gi');
                         specialBlockRegexes.push(tagRegex);
-                        // console.log(`${DEBUG_PREFIX} Added Font Manager custom tag: ${tag.tagName}`);
+                        console.log(`${DEBUG_PREFIX} Added Font Manager custom tag: <${tag.tagName}> with regex: ${tagRegex}`);
                     }
                 });
+                console.log(`${DEBUG_PREFIX} Total special block regexes: ${specialBlockRegexes.length}`);
             }
         } catch (error) {
-            console.warn('[LLM-Translator] Failed to load Font Manager custom tags:', error);
+            console.error('[LLM-Translator] Failed to load Font Manager custom tags:', error);
         }
         
         const placeholderPrefix = '__LLM_TRANSLATOR_SPECIAL_BLOCK_';
