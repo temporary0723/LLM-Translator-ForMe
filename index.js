@@ -3516,30 +3516,39 @@ function processTranslationText(originalText, translatedText) {
                     const originalBlock = specialBlocksMap[templateLine];
                     const translatedBlock = translatedBlocksMap[translatedTemplateLine];
                     
-                    let blockHTML = '';
-                    if (displayMode === 'folded') {
-                        blockHTML =
-                            '<details class="llm-translator-details mode-folded">' +
-                                '<summary class="llm-translator-summary">' +
-                                    '<span class="translated_text clickable-text-org">' + translatedBlock + '</span>' +
-                                '</summary>' +
-                                '<span class="original_text">' + originalBlock + '</span>' +
-                            '</details>';
-                    } else if (displayMode === 'original_first') {
-                        blockHTML =
-                            '<details class="llm-translator-details mode-original-first">' +
-                                '<summary class="llm-translator-summary">' +
-                                    '<span class="original_text clickable-text-org">' + originalBlock + '</span>' +
-                                '</summary>' +
-                                '<span class="translated_text">' + translatedBlock + '</span>' +
-                            '</details>';
-                    } else { // unfolded 모드
-                        blockHTML =
-                            '<span class="translated_text mode-unfolded">' + translatedBlock + '</span>' +
-                            '<br>' +
-                            '<span class="original_text mode-unfolded">' + originalBlock + '</span>';
+                    // 코드 블록인 경우 (백틱으로 시작) - details 구조 없이 그대로 표시
+                    const isCodeBlock = originalBlock.trim().startsWith('```');
+                    
+                    if (isCodeBlock) {
+                        // 코드 블록은 번역하지 않고 원본만 표시
+                        resultHtmlParts.push(originalBlock);
+                    } else {
+                        // 일반 특수 블록은 details 구조로 감싸기
+                        let blockHTML = '';
+                        if (displayMode === 'folded') {
+                            blockHTML =
+                                '<details class="llm-translator-details mode-folded">' +
+                                    '<summary class="llm-translator-summary">' +
+                                        '<span class="translated_text clickable-text-org">' + translatedBlock + '</span>' +
+                                    '</summary>' +
+                                    '<span class="original_text">' + originalBlock + '</span>' +
+                                '</details>';
+                        } else if (displayMode === 'original_first') {
+                            blockHTML =
+                                '<details class="llm-translator-details mode-original-first">' +
+                                    '<summary class="llm-translator-summary">' +
+                                        '<span class="original_text clickable-text-org">' + originalBlock + '</span>' +
+                                    '</summary>' +
+                                    '<span class="translated_text">' + translatedBlock + '</span>' +
+                                '</details>';
+                        } else { // unfolded 모드
+                            blockHTML =
+                                '<span class="translated_text mode-unfolded">' + translatedBlock + '</span>' +
+                                '<br>' +
+                                '<span class="original_text mode-unfolded">' + originalBlock + '</span>';
+                        }
+                        resultHtmlParts.push(blockHTML);
                     }
-                    resultHtmlParts.push(blockHTML);
                 } else if (templateLine === '') {
                     // 빈 라인 유지
                     resultHtmlParts.push('');
@@ -3711,30 +3720,39 @@ function processTranslationText(originalText, translatedText) {
                         const originalBlock = specialBlocksMap[origLine];
                         const translatedBlock = translatedBlocksMap[transLine];
                         
-                        let blockHTML = '';
-                        if (displayMode === 'folded') {
-                            blockHTML =
-                                '<details class="llm-translator-details mode-folded">' +
-                                    '<summary class="llm-translator-summary">' +
-                                        '<span class="translated_text clickable-text-org">' + translatedBlock + '</span>' +
-                                    '</summary>' +
-                                    '<span class="original_text">' + originalBlock + '</span>' +
-                                '</details>';
-                        } else if (displayMode === 'original_first') {
-                            blockHTML =
-                                '<details class="llm-translator-details mode-original-first">' +
-                                    '<summary class="llm-translator-summary">' +
-                                        '<span class="original_text clickable-text-org">' + originalBlock + '</span>' +
-                                    '</summary>' +
-                                    '<span class="translated_text">' + translatedBlock + '</span>' +
-                                '</details>';
-                        } else { // unfolded
-                            blockHTML =
-                                '<span class="translated_text mode-unfolded">' + translatedBlock + '</span>' +
-                                '<br>' +
-                                '<span class="original_text mode-unfolded">' + originalBlock + '</span>';
+                        // 코드 블록인 경우 (백틱으로 시작) - details 구조 없이 그대로 표시
+                        const isCodeBlock = originalBlock.trim().startsWith('```');
+                        
+                        if (isCodeBlock) {
+                            // 코드 블록은 번역하지 않고 원본만 표시
+                            resultHtmlParts.push(originalBlock);
+                        } else {
+                            // 일반 특수 블록은 details 구조로 감싸기
+                            let blockHTML = '';
+                            if (displayMode === 'folded') {
+                                blockHTML =
+                                    '<details class="llm-translator-details mode-folded">' +
+                                        '<summary class="llm-translator-summary">' +
+                                            '<span class="translated_text clickable-text-org">' + translatedBlock + '</span>' +
+                                        '</summary>' +
+                                        '<span class="original_text">' + originalBlock + '</span>' +
+                                    '</details>';
+                            } else if (displayMode === 'original_first') {
+                                blockHTML =
+                                    '<details class="llm-translator-details mode-original-first">' +
+                                        '<summary class="llm-translator-summary">' +
+                                            '<span class="original_text clickable-text-org">' + originalBlock + '</span>' +
+                                        '</summary>' +
+                                        '<span class="translated_text">' + translatedBlock + '</span>' +
+                                    '</details>';
+                            } else { // unfolded
+                                blockHTML =
+                                    '<span class="translated_text mode-unfolded">' + translatedBlock + '</span>' +
+                                    '<br>' +
+                                    '<span class="original_text mode-unfolded">' + originalBlock + '</span>';
+                            }
+                            resultHtmlParts.push(blockHTML);
                         }
-                        resultHtmlParts.push(blockHTML);
                     } else if (placeholderRegexSingle.test(origLine)) {
                         // 원문만 placeholder인 경우
                         resultHtmlParts.push(specialBlocksMap[origLine]);
