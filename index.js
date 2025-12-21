@@ -3544,6 +3544,7 @@ function processTranslationText(originalText, translatedText) {
         
         // 번역문에서도 placeholder 제거하여 순수 텍스트만 추출
         const translatedPlaceholderRegex = new RegExp(placeholderPrefix + 'TRANSLATED_\\d+' + placeholderSuffix, 'g');
+        const translatedPlaceholderRegexSingle = new RegExp('^' + placeholderPrefix + 'TRANSLATED_\\d+' + placeholderSuffix + '$');
         let proseOnlyTranslatedText = processedTranslated.replace(translatedPlaceholderRegex, '').trim();
 
         console.log(`${DEBUG_PREFIX} Processed Text w/ Placeholders (for template split):`, processedTextWithPlaceholders);
@@ -3553,10 +3554,12 @@ function processTranslationText(originalText, translatedText) {
 
         // 6. 라인 분리 및 정리
         const templateLines = processedTextWithPlaceholders.split('\n').map(line => line.trim());
+        const translatedTemplateLines = processedTranslated.split('\n').map(line => line.trim()); // 번역문 템플릿 라인
         const proseOriginalLines = proseOnlyOriginalText.split('\n').map(line => line.trim()).filter(line => line !== '');
         const translatedLines = proseOnlyTranslatedText.split('\n').map(line => line.trim()).filter(line => line !== '');
 
         console.log(`${DEBUG_PREFIX} Template Lines:`, templateLines, `Count: ${templateLines.length}`);
+        console.log(`${DEBUG_PREFIX} Translated Template Lines:`, translatedTemplateLines, `Count: ${translatedTemplateLines.length}`);
         console.log(`${DEBUG_PREFIX} Prose Original Lines:`, proseOriginalLines, `Count: ${proseOriginalLines.length}`);
         console.log(`${DEBUG_PREFIX} Translated Lines:`, translatedLines, `Count: ${translatedLines.length}`);
 
