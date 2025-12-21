@@ -3388,7 +3388,7 @@ function processTranslationText(originalText, translatedText) {
             /<thinking>[\s\S]*?<\/thinking>/gi,
             /<tableEdit>[\s\S]*?<\/tableEdit>/gi,
             /<details[^>]*>[\s\S]*?<\/details>/gi,
-            /```[^\r\n]*\r?\n[\s\S]*?\r?\n```/g
+            /```[\s\S]*?```/g
         ];
         
         // Font Manager의 커스텀 태그를 동적으로 추가
