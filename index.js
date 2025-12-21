@@ -3455,11 +3455,33 @@ function processTranslationText(originalText, translatedText) {
         // 3. 특수 블록 패턴 정의 및 Placeholder 준비
         const specialBlockRegexes = [
             /<think>[\s\S]*?<\/think>/gi,
-            /<thinking>[\s\S]*?<\/thinking>/gi,                 // <<<--- 여기 추가: thinking 태그
+            /<thinking>[\s\S]*?<\/thinking>/gi,
             /<tableEdit>[\s\S]*?<\/tableEdit>/gi,
             /<details[^>]*>[\s\S]*?<\/details>/gi,
             /^```[^\r\n]*\r?\n[\s\S]*?\r?\n```$/gm
         ];
+        
+        // Font Manager의 커스텀 태그를 동적으로 추가
+        try {
+            const fontManagerSettings = localStorage.getItem('font-manager-settings');
+            if (fontManagerSettings) {
+                const parsedSettings = JSON.parse(fontManagerSettings);
+                const customTags = parsedSettings?.customTags || [];
+                
+                // 각 커스텀 태그에 대한 정규식 추가
+                customTags.forEach(tag => {
+                    if (tag.tagName) {
+                        const escapedTagName = tag.tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const tagRegex = new RegExp(`<${escapedTagName}[^>]*>([\\s\\S]*?)</${escapedTagName}>`, 'gi');
+                        specialBlockRegexes.push(tagRegex);
+                        // console.log(`${DEBUG_PREFIX} Added Font Manager custom tag: ${tag.tagName}`);
+                    }
+                });
+            }
+        } catch (error) {
+            console.warn('[LLM-Translator] Failed to load Font Manager custom tags:', error);
+        }
+        
         const placeholderPrefix = '__LLM_TRANSLATOR_SPECIAL_BLOCK_';
         const placeholderSuffix = '__';
         const placeholderRegexGlobal = new RegExp(placeholderPrefix + '\\d+' + placeholderSuffix, 'g');
