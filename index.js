@@ -3468,7 +3468,17 @@ function processTranslationText(originalText, translatedText) {
             
             if (fontManagerSettings) {
                 const parsedSettings = JSON.parse(fontManagerSettings);
-                const customTags = parsedSettings?.customTags || [];
+                
+                // 현재 프리셋 찾기
+                const currentPresetId = parsedSettings?.currentPreset;
+                const presets = parsedSettings?.presets || [];
+                const currentPreset = presets.find(p => p.id === currentPresetId);
+                
+                // 프리셋의 customTags 우선, 없으면 전역 customTags
+                const customTags = currentPreset?.customTags ?? parsedSettings?.customTags ?? [];
+                
+                console.log(`${DEBUG_PREFIX} Current Preset ID:`, currentPresetId);
+                console.log(`${DEBUG_PREFIX} Current Preset:`, currentPreset?.name || 'None');
                 console.log(`${DEBUG_PREFIX} Font Manager Custom Tags:`, customTags);
                 
                 // 각 커스텀 태그에 대한 정규식 추가
