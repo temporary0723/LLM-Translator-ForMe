@@ -792,9 +792,12 @@ async function retranslateMessage(messageId, promptType, forceRetranslate = fals
             updateMessageBlock(messageId, message);
             
             // 번역문 표시 플래그 설정 (Font Manager 등 다른 확장과의 호환성을 위해)
-            const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
-            const textBlock = messageBlock.find('.mes_text');
-            textBlock.data('showing-original', false);
+            // updateMessageBlock 후 DOM이 완전히 업데이트된 후 플래그 설정
+            setTimeout(() => {
+                const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+                const textBlock = messageBlock.find('.mes_text');
+                textBlock.data('showing-original', false);
+            }, 100);
             
             await context.saveChat();
             
@@ -899,9 +902,12 @@ async function translateMessage(messageId, forceTranslate = false, source = 'man
             updateMessageBlock(messageId, message);
             
             // 번역문 표시 플래그 설정 (Font Manager 등 다른 확장과의 호환성을 위해)
-            const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
-            const textBlock = messageBlock.find('.mes_text');
-            textBlock.data('showing-original', false);
+            // updateMessageBlock 후 DOM이 완전히 업데이트된 후 플래그 설정
+            setTimeout(() => {
+                const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+                const textBlock = messageBlock.find('.mes_text');
+                textBlock.data('showing-original', false);
+            }, 100);
             
             await context.saveChat();
         }
@@ -930,17 +936,25 @@ async function toggleOriginalText(messageId) {
     const textBlock = messageBlock.find('.mes_text');
 
     const originalDisplayText = message.extra.display_text;
+    const isCurrentlyShowingOriginal = textBlock.data('showing-original');
 
-    if (textBlock.data('showing-original')) {
+    if (isCurrentlyShowingOriginal) {
+        // 원문 표시 중 → 번역문으로 전환
         message.extra.display_text = originalDisplayText;
-        textBlock.data('showing-original', false);
     } else {
+        // 번역문 표시 중 → 원문으로 전환
         const originalText = substituteParams(message.mes, context.name1, message.name);
         message.extra.display_text = originalText;
-        textBlock.data('showing-original', true);
     }
 
     await updateMessageBlock(messageId, message);
+
+    // updateMessageBlock 후 DOM이 완전히 업데이트된 후 플래그 설정
+    setTimeout(() => {
+        const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+        const textBlock = messageBlock.find('.mes_text');
+        textBlock.data('showing-original', !isCurrentlyShowingOriginal);
+    }, 100);
 
     message.extra.display_text = originalDisplayText;
 }
@@ -1048,9 +1062,15 @@ async function showOriginalText(messageId) {
     // 원문으로 전환
     const originalText = substituteParams(message.mes, context.name1, message.name);
     message.extra.display_text = originalText;
-    textBlock.data('showing-original', true);
 
     await updateMessageBlock(messageId, message);
+
+    // updateMessageBlock 후 DOM이 완전히 업데이트된 후 플래그 설정
+    setTimeout(() => {
+        const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+        const textBlock = messageBlock.find('.mes_text');
+        textBlock.data('showing-original', true);
+    }, 100);
 
     // 원래 번역문 복원 (메모리에만)
     message.extra.display_text = originalDisplayText;
