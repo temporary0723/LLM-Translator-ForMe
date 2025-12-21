@@ -3447,18 +3447,21 @@ function processTranslationText(originalText, translatedText) {
         console.log('[LLM-Translator CODE BLOCK DEBUG] Placeholder 처리 후 텍스트 처음 200자:', textWithPlaceholders.substring(0, 200));
 
         // 번역문도 같은 방식으로 placeholder 처리
+        console.log('[LLM-Translator CODE BLOCK DEBUG] 번역문 처음 100자:', translatedText?.substring(0, 100));
         let translatedWithPlaceholders = translatedText || '';
         let translatedPlaceholderIndex = 0;
         const translatedBlocksMap = {};
         
-        specialBlockRegexes.forEach(regex => {
+        specialBlockRegexes.forEach((regex, idx) => {
             translatedWithPlaceholders = translatedWithPlaceholders.replace(regex, (match) => {
                 const placeholder = `${placeholderPrefix}TRANSLATED_${translatedPlaceholderIndex}${placeholderSuffix}`;
                 translatedBlocksMap[placeholder] = match;
+                console.log(`[LLM-Translator CODE BLOCK DEBUG] 번역문 Regex ${idx} 매칭됨! Placeholder: ${placeholder}`);
                 translatedPlaceholderIndex++;
                 return placeholder;
             });
         });
+        console.log('[LLM-Translator CODE BLOCK DEBUG] 번역문 Placeholder 처리 후 처음 200자:', translatedWithPlaceholders.substring(0, 200));
 
         // 5. 텍스트 전처리 (<br> -> \n, trim)
         let processedTextWithPlaceholders = (textWithPlaceholders || '').replace(/<br\s*\/?>/gi, '\n').trim();
@@ -3477,12 +3480,24 @@ function processTranslationText(originalText, translatedText) {
         const translatedLines = proseOnlyTranslatedText.split('\n').map(line => line.trim()).filter(line => line !== '');
 
         // 7. 라인 수 일치 확인 및 처리 경로 분기
+        console.log('[LLM-Translator CODE BLOCK DEBUG] 라인 수:', {
+            templateLines: templateLines.length,
+            translatedTemplateLines: translatedTemplateLines.length,
+            proseOriginalLines: proseOriginalLines.length,
+            translatedLines: translatedLines.length
+        });
+        console.log('[LLM-Translator CODE BLOCK DEBUG] Template Lines:', templateLines);
+        console.log('[LLM-Translator CODE BLOCK DEBUG] Translated Template Lines:', translatedTemplateLines);
+        
         const forceSequentialMatching = extensionSettings.force_sequential_matching;
         const canProcessLineByLine = (proseOriginalLines.length === translatedLines.length && proseOriginalLines.length > 0) ||
                                    (forceSequentialMatching && (proseOriginalLines.length > 0 || translatedLines.length > 0));
         
+        console.log('[LLM-Translator CODE BLOCK DEBUG] canProcessLineByLine:', canProcessLineByLine);
+        
         if (canProcessLineByLine) {
             // 7a. 성공 경로: 라인 수 일치 (본문 라인 1개 이상)
+            console.log('[LLM-Translator CODE BLOCK DEBUG] ✅ 성공 경로: 라인별 처리');
             
             // 순차 매칭 사용시 토스트 표시
             if (forceSequentialMatching && proseOriginalLines.length !== translatedLines.length && proseOriginalLines.length > 0 && translatedLines.length > 0) {
@@ -3673,13 +3688,15 @@ function processTranslationText(originalText, translatedText) {
             }
             
             const finalHtmlResult = resultHtmlParts.join('\n').trim();
-            // console.log(`${DEBUG_PREFIX} Final Reconstructed HTML (Success - ${displayMode}):`, finalHtmlResult);
+            console.log('[LLM-Translator CODE BLOCK DEBUG] ✅ 성공 경로 최종 HTML 처음 300자:', finalHtmlResult.substring(0, 300));
             return finalHtmlResult;
 
         } else {
             // 7b. Fallback 경로: 라인 수 불일치 또는 본문 라인 0개
+            console.log('[LLM-Translator CODE BLOCK DEBUG] ⚠️ Fallback 경로 진입');
             if (proseOriginalLines.length === 0 && translatedLines.length === 0 && templateLines.some(line => placeholderRegexSingle.test(line))) {
                 // 특수 블록만 있는 경우: 원문/번역문 placeholder를 details로 변환
+                console.log('[LLM-Translator CODE BLOCK DEBUG] ✅ 특수 블록만 있는 경우');
                 
                 const translatedTemplateLines = processedTranslated.split('\n').map(line => line.trim());
                 const translatedPlaceholderRegexSingle = new RegExp('^' + placeholderPrefix + 'TRANSLATED_\\d+' + placeholderSuffix + '$');
@@ -3728,10 +3745,12 @@ function processTranslationText(originalText, translatedText) {
                 }
                 
                 const finalHtmlResult = resultHtmlParts.join('\n').trim();
+                console.log('[LLM-Translator CODE BLOCK DEBUG] ✅ 특수 블록 전용 Fallback 최종 HTML 처음 300자:', finalHtmlResult.substring(0, 300));
                 return finalHtmlResult;
 
             } else {
                  // 일반 Fallback: 라인 수 불일치 등
+                 console.log('[LLM-Translator CODE BLOCK DEBUG] ⚠️ 일반 Fallback 경로');
                  // console.warn(`${DEBUG_PREFIX} Line count mismatch or zero prose lines! Falling back to single block (${displayMode}).`); // 경고 로그 유지 가능
                  if (proseOriginalLines.length !== translatedLines.length) {
                     if (forceSequentialMatching) {
