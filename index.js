@@ -786,15 +786,12 @@ async function retranslateMessage(messageId, promptType, forceRetranslate = fals
             // 결과 저장 및 UI 업데이트
             await deleteTranslationByOriginalText(originalText);
             await addTranslationToDB(originalText, retranslation);
-            message.extra.display_text = processTranslationText(originalText, retranslation);
+            message.extra.display_text = processTranslationText(originalText, retranslation, context, message.name);
             // 현재 원문을 저장 (메시지 수정 시 이전 원문의 번역을 삭제하기 위해)
             message.extra.original_text_for_translation = originalText;
             
             // 원문 표시 백업 초기화 (재번역했으므로)
             delete message.extra.original_translation_backup;
-            
-            // display_text에 정규식 치환을 다시 적용 (Regex Script가 <details> 구조 안의 내용에도 적용되도록)
-            message.extra.display_text = substituteParams(message.extra.display_text, context.name1, message.name);
             
             updateMessageBlock(messageId, message);
             
@@ -890,7 +887,7 @@ async function translateMessage(messageId, forceTranslate = false, source = 'man
             const cachedTranslation = await getTranslationFromDB(originalText);
             
             if (cachedTranslation) {
-                message.extra.display_text = processTranslationText(originalText, cachedTranslation);
+                message.extra.display_text = processTranslationText(originalText, cachedTranslation, context, message.name);
                 // 현재 원문을 저장 (메시지 수정 시 이전 원문의 번역을 삭제하기 위해)
                 message.extra.original_text_for_translation = originalText;
                 if (source !== 'auto') {
@@ -900,7 +897,7 @@ async function translateMessage(messageId, forceTranslate = false, source = 'man
                 // 새로 번역
                 const translation = await translate(originalText);
                 await addTranslationToDB(originalText, translation);
-                message.extra.display_text = processTranslationText(originalText, translation);
+                message.extra.display_text = processTranslationText(originalText, translation, context, message.name);
             }
             
             // 현재 원문을 저장 (메시지 수정 시 이전 원문의 번역을 삭제하기 위해)
@@ -908,9 +905,6 @@ async function translateMessage(messageId, forceTranslate = false, source = 'man
             
             // 원문 표시 백업 초기화 (새로 번역했으므로)
             delete message.extra.original_translation_backup;
-            
-            // display_text에 정규식 치환을 다시 적용 (Regex Script가 <details> 구조 안의 내용에도 적용되도록)
-            message.extra.display_text = substituteParams(message.extra.display_text, context.name1, message.name);
             
             updateMessageBlock(messageId, message);
             
@@ -954,9 +948,6 @@ async function toggleOriginalText(messageId) {
         if (message.extra.original_translation_backup) {
             message.extra.display_text = message.extra.original_translation_backup;
             delete message.extra.original_translation_backup;
-            
-            // display_text에 정규식 치환을 다시 적용 (Regex Script가 <details> 구조 안의 내용에도 적용되도록)
-            message.extra.display_text = substituteParams(message.extra.display_text, context.name1, message.name);
         }
     } else {
         // 번역문 표시 중 → 원문으로 전환
@@ -1123,9 +1114,6 @@ async function handleTranslateButtonClick(messageId) {
         if (message.extra.original_translation_backup) {
             message.extra.display_text = message.extra.original_translation_backup;
             delete message.extra.original_translation_backup;
-            
-            // display_text에 정규식 치환을 다시 적용 (Regex Script가 <details> 구조 안의 내용에도 적용되도록)
-            message.extra.display_text = substituteParams(message.extra.display_text, context.name1, message.name);
             
             await updateMessageBlock(messageId, message);
             
@@ -3376,10 +3364,21 @@ function correctBackticks(input) {
  * 오류 발생 시 또는 Fallback 시 적절한 출력을 반환합니다.
  * @param {string} originalText - 원본 메시지 텍스트 (HTML 포함 가능)
  * @param {string} translatedText - 번역된 텍스트 (HTML 포함 가능)
+ * @param {Object} context - SillyTavern 컨텍스트 (선택사항, Regex Script 적용을 위해 필요)
+ * @param {string} characterName - 캐릭터 이름 (선택사항, Regex Script 적용을 위해 필요)
  * @returns {string} 가공된 HTML 문자열 또는 원본 번역 텍스트
  */
-function processTranslationText(originalText, translatedText) {
+function processTranslationText(originalText, translatedText, context = null, characterName = null) {
     const displayMode = extensionSettings.translation_display_mode || 'disabled'; // 설정값 읽기 (기본값 'disabled')
+
+    // 헬퍼 함수: 최종 HTML에 정규식을 적용
+    const applyRegexToFinalHtml = (html) => {
+        // context와 characterName이 제공된 경우에만 정규식 적용
+        if (context && characterName && typeof substituteParams === 'function') {
+            return substituteParams(html, context.name1, characterName);
+        }
+        return html;
+    };
 
     // 1. 'disabled' 모드 처리 (가장 먼저 확인)
     if (displayMode === 'disabled') {
@@ -3687,7 +3686,8 @@ function processTranslationText(originalText, translatedText) {
             }
             
             const finalHtmlResult = resultHtmlParts.join('\n').trim();
-            return finalHtmlResult;
+            return applyRegexToFinalHtml(finalHtmlResult);
+
 
         } else {
             // 7b. Fallback 경로: 라인 수 불일치 또는 본문 라인 0개
@@ -3750,7 +3750,8 @@ function processTranslationText(originalText, translatedText) {
                 }
                 
                 const finalHtmlResult = resultHtmlParts.join('\n').trim();
-                return finalHtmlResult;
+                return applyRegexToFinalHtml(finalHtmlResult);
+
 
             } else {
                  // 일반 Fallback: 라인 수 불일치 등
@@ -3793,7 +3794,8 @@ function processTranslationText(originalText, translatedText) {
                          '<span class="original_text mode-unfolded">' + fallbackOriginal + '</span>';
                  }
                  // console.log(`${DEBUG_PREFIX} Fallback HTML Generated (${displayMode}):`, fallbackHTML);
-                 return fallbackHTML;
+                 return applyRegexToFinalHtml(fallbackHTML);
+
             }
         }
 
@@ -3802,7 +3804,7 @@ function processTranslationText(originalText, translatedText) {
         console.error(`${DEBUG_PREFIX} Error during processTranslationText (Mode: ${displayMode}):`, error); // 오류 로깅은 유지
         toastr.error('번역문 처리 중 오류가 발생했습니다. 가공된 번역문을 표시합니다.');
         // 오류 시에는 최소한 백틱 처리된 번역문이라도 반환 (disabled 모드가 아닐 때)
-        return correctBackticks(translatedText || '');
+        return applyRegexToFinalHtml(correctBackticks(translatedText || ''));
     } finally {
         // console.log(`${DEBUG_PREFIX} processTranslationText END (Mode: ${displayMode})`);
     }
