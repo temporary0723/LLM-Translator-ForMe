@@ -961,11 +961,14 @@ async function toggleOriginalText(messageId) {
 
 // 현재 화면에 번역문이 표시되고 있는지 확인하는 함수
 function isTranslationCurrentlyDisplayed(messageId) {
+    console.log(`[LLM-Translator DEBUG] isTranslationCurrentlyDisplayed 호출 - messageId: ${messageId}`);
+    
     const context = getContext();
     const message = context.chat[messageId];
     
     // 번역문이 없으면 false
     if (!message?.extra?.display_text) {
+        console.log(`[LLM-Translator DEBUG] display_text 없음 → false 반환`);
         return false;
     }
     
@@ -973,26 +976,38 @@ function isTranslationCurrentlyDisplayed(messageId) {
     const textBlock = messageBlock.find('.mes_text');
     const showingOriginalFlag = textBlock.data('showing-original');
     
+    console.log(`[LLM-Translator DEBUG] showing-original 플래그: ${showingOriginalFlag} (타입: ${typeof showingOriginalFlag})`);
+    
     // showing-original 플래그가 명시적으로 true이면 원문 표시 중
     if (showingOriginalFlag === true) {
+        console.log(`[LLM-Translator DEBUG] 플래그 = true (원문 표시 중) → false 반환`);
         return false;
     }
     
     // showing-original 플래그가 명시적으로 false이면 번역문 표시 중  
     if (showingOriginalFlag === false) {
+        console.log(`[LLM-Translator DEBUG] 플래그 = false (번역문 표시 중) → true 반환`);
         return true;
     }
     
     // showing-original 플래그가 설정되지 않은 경우 (초기 번역 후 상태)
     // 현재 화면에 표시된 텍스트와 원본 메시지 텍스트를 비교
+    console.log(`[LLM-Translator DEBUG] 플래그 없음 → 폴백 로직 실행`);
+    
     const originalText = substituteParams(message.mes, context.name1, message.name);
     const currentDisplayedHtml = textBlock.html();
+    
+    console.log(`[LLM-Translator DEBUG] 원본 텍스트: "${originalText.substring(0, 100)}..."`);
+    console.log(`[LLM-Translator DEBUG] 현재 HTML (처리 전): "${currentDisplayedHtml.substring(0, 200)}..."`);
     
     // HTML에서 텍스트만 추출하여 비교
     // Font Manager 등 다른 확장이 추가한 태그를 제거하여 정확한 비교
     const tempDiv = $('<div>').html(currentDisplayedHtml);
     
     // Font Manager가 추가한 커스텀 태그 폰트 span 제거
+    const customTagSpans = tempDiv.find('[data-custom-tag-font]');
+    console.log(`[LLM-Translator DEBUG] Font Manager 태그 개수: ${customTagSpans.length}`);
+    
     tempDiv.find('[data-custom-tag-font]').each(function() {
         $(this).replaceWith($(this).html());
     });
@@ -1000,8 +1015,15 @@ function isTranslationCurrentlyDisplayed(messageId) {
     const currentDisplayedText = tempDiv.text().trim();
     const originalTextTrimmed = originalText.trim();
     
+    console.log(`[LLM-Translator DEBUG] 현재 표시 텍스트 (처리 후): "${currentDisplayedText.substring(0, 100)}..."`);
+    console.log(`[LLM-Translator DEBUG] 원본 텍스트 (trim): "${originalTextTrimmed.substring(0, 100)}..."`);
+    console.log(`[LLM-Translator DEBUG] 텍스트 비교: ${currentDisplayedText === originalTextTrimmed ? '같음' : '다름'}`);
+    
     // 현재 표시된 텍스트가 원본과 같으면 원문 표시 중, 다르면 번역문 표시 중
-    return currentDisplayedText !== originalTextTrimmed;
+    const result = currentDisplayedText !== originalTextTrimmed;
+    console.log(`[LLM-Translator DEBUG] 최종 반환값: ${result} (${result ? '번역문 표시 중' : '원문 표시 중'})`);
+    
+    return result;
 }
 
 // messageId 유효성 검사 및 기본값 처리 함수
@@ -1051,6 +1073,8 @@ function updateButtonVisibility() {
 
 // 번역문이 표시되고 있을 때 원문으로 전환하는 함수
 async function showOriginalText(messageId) {
+    console.log(`[LLM-Translator DEBUG] showOriginalText 시작 (messageId: ${messageId})`);
+    
     const context = getContext();
     const message = context.chat[messageId];
     if (!message?.extra?.display_text) return;
@@ -1059,47 +1083,68 @@ async function showOriginalText(messageId) {
     const textBlock = messageBlock.find('.mes_text');
     const originalDisplayText = message.extra.display_text;
 
+    console.log(`[LLM-Translator DEBUG] 저장된 번역문: "${originalDisplayText.substring(0, 100)}..."`);
+
     // 원문으로 전환
     const originalText = substituteParams(message.mes, context.name1, message.name);
+    console.log(`[LLM-Translator DEBUG] 원문: "${originalText.substring(0, 100)}..."`);
+    
     message.extra.display_text = originalText;
 
+    console.log(`[LLM-Translator DEBUG] updateMessageBlock 호출 전`);
     await updateMessageBlock(messageId, message);
+    console.log(`[LLM-Translator DEBUG] updateMessageBlock 호출 완료`);
 
     // updateMessageBlock 후 DOM이 완전히 업데이트된 후 플래그 설정
     setTimeout(() => {
+        console.log(`[LLM-Translator DEBUG] setTimeout 실행 - showing-original 플래그를 true로 설정`);
         const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
         const textBlock = messageBlock.find('.mes_text');
         textBlock.data('showing-original', true);
+        console.log(`[LLM-Translator DEBUG] 플래그 설정 완료: ${textBlock.data('showing-original')}`);
     }, 100);
 
     // 원래 번역문 복원 (메모리에만)
     message.extra.display_text = originalDisplayText;
+    console.log(`[LLM-Translator DEBUG] showOriginalText 종료`);
 }
 
 // 번역 버튼 클릭 시 상태에 따른 동작 처리
 async function handleTranslateButtonClick(messageId) {
+    console.log(`[LLM-Translator DEBUG] ========== handleTranslateButtonClick 시작 (messageId: ${messageId}) ==========`);
+    
     const context = getContext();
     const message = context.chat[messageId];
     
     // 번역 진행 중 확인
     if (translationInProgress[messageId]) {
+        console.log(`[LLM-Translator DEBUG] 번역 진행 중 → 중단`);
         toastr.info('번역이 이미 진행 중입니다.');
         return;
     }
     
     // 번역문이 없는 경우 → 번역 실행
     if (!message?.extra?.display_text) {
+        console.log(`[LLM-Translator DEBUG] display_text 없음 → 번역 실행`);
         await translateMessage(messageId, true, 'handleTranslateButtonClick');
         return;
     }
 
+    console.log(`[LLM-Translator DEBUG] display_text 있음 → 상태 확인`);
+    console.log(`[LLM-Translator DEBUG] display_text 내용: "${message.extra.display_text.substring(0, 100)}..."`);
+    
     // 현재 번역문이 표시되고 있는지 확인
     const isShowingTranslation = isTranslationCurrentlyDisplayed(messageId);
     
+    console.log(`[LLM-Translator DEBUG] isTranslationCurrentlyDisplayed 결과: ${isShowingTranslation}`);
+    
     if (isShowingTranslation) {
+        console.log(`[LLM-Translator DEBUG] 번역문 표시 중 → 원문으로 전환`);
         // 번역문이 표시되고 있는 경우 → 원문 표시
         await showOriginalText(messageId);
+        toastr.info(`원문으로 전환했습니다 #${messageId}`);
     } else {
+        console.log(`[LLM-Translator DEBUG] 원문 표시 중 → 재번역 실행`);
         // 원문이 표시되고 있는 경우 → 번역 실행
         // 번역 실행 전에 showing-original 플래그 초기화
         const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
@@ -1108,6 +1153,8 @@ async function handleTranslateButtonClick(messageId) {
         
         await translateMessage(messageId, true, 'handleTranslateButtonClick_retranslate');
     }
+    
+    console.log(`[LLM-Translator DEBUG] ========== handleTranslateButtonClick 종료 ==========`);
 }
 
 // 전체 채팅 번역 (단순화)
