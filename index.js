@@ -793,6 +793,9 @@ async function retranslateMessage(messageId, promptType, forceRetranslate = fals
             // 원문 표시 백업 초기화 (재번역했으므로)
             delete message.extra.original_translation_backup;
             
+            // display_text에 정규식 치환을 다시 적용 (Regex Script가 <details> 구조 안의 내용에도 적용되도록)
+            message.extra.display_text = substituteParams(message.extra.display_text, context.name1, message.name);
+            
             updateMessageBlock(messageId, message);
             
             // 번역문 표시 플래그 설정 (Font Manager 등 다른 확장과의 호환성을 위해)
@@ -906,6 +909,9 @@ async function translateMessage(messageId, forceTranslate = false, source = 'man
             // 원문 표시 백업 초기화 (새로 번역했으므로)
             delete message.extra.original_translation_backup;
             
+            // display_text에 정규식 치환을 다시 적용 (Regex Script가 <details> 구조 안의 내용에도 적용되도록)
+            message.extra.display_text = substituteParams(message.extra.display_text, context.name1, message.name);
+            
             updateMessageBlock(messageId, message);
             
             // 번역문 표시 플래그 설정 (Font Manager 등 다른 확장과의 호환성을 위해)
@@ -948,6 +954,9 @@ async function toggleOriginalText(messageId) {
         if (message.extra.original_translation_backup) {
             message.extra.display_text = message.extra.original_translation_backup;
             delete message.extra.original_translation_backup;
+            
+            // display_text에 정규식 치환을 다시 적용 (Regex Script가 <details> 구조 안의 내용에도 적용되도록)
+            message.extra.display_text = substituteParams(message.extra.display_text, context.name1, message.name);
         }
     } else {
         // 번역문 표시 중 → 원문으로 전환
@@ -1114,6 +1123,9 @@ async function handleTranslateButtonClick(messageId) {
         if (message.extra.original_translation_backup) {
             message.extra.display_text = message.extra.original_translation_backup;
             delete message.extra.original_translation_backup;
+            
+            // display_text에 정규식 치환을 다시 적용 (Regex Script가 <details> 구조 안의 내용에도 적용되도록)
+            message.extra.display_text = substituteParams(message.extra.display_text, context.name1, message.name);
             
             await updateMessageBlock(messageId, message);
             
