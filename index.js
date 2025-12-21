@@ -790,6 +790,12 @@ async function retranslateMessage(messageId, promptType, forceRetranslate = fals
             // 현재 원문을 저장 (메시지 수정 시 이전 원문의 번역을 삭제하기 위해)
             message.extra.original_text_for_translation = originalText;
             updateMessageBlock(messageId, message);
+            
+            // 번역문 표시 플래그 설정 (Font Manager 등 다른 확장과의 호환성을 위해)
+            const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+            const textBlock = messageBlock.find('.mes_text');
+            textBlock.data('showing-original', false);
+            
             await context.saveChat();
             
             toastr.success(`재번역(${promptTypeKorean}) 완료 #${messageId}`);
@@ -891,6 +897,12 @@ async function translateMessage(messageId, forceTranslate = false, source = 'man
             message.extra.original_text_for_translation = originalText;
             
             updateMessageBlock(messageId, message);
+            
+            // 번역문 표시 플래그 설정 (Font Manager 등 다른 확장과의 호환성을 위해)
+            const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+            const textBlock = messageBlock.find('.mes_text');
+            textBlock.data('showing-original', false);
+            
             await context.saveChat();
         }
     } catch (error) {
@@ -963,7 +975,15 @@ function isTranslationCurrentlyDisplayed(messageId) {
     const currentDisplayedHtml = textBlock.html();
     
     // HTML에서 텍스트만 추출하여 비교
-    const currentDisplayedText = $('<div>').html(currentDisplayedHtml).text().trim();
+    // Font Manager 등 다른 확장이 추가한 태그를 제거하여 정확한 비교
+    const tempDiv = $('<div>').html(currentDisplayedHtml);
+    
+    // Font Manager가 추가한 커스텀 태그 폰트 span 제거
+    tempDiv.find('[data-custom-tag-font]').each(function() {
+        $(this).replaceWith($(this).html());
+    });
+    
+    const currentDisplayedText = tempDiv.text().trim();
     const originalTextTrimmed = originalText.trim();
     
     // 현재 표시된 텍스트가 원본과 같으면 원문 표시 중, 다르면 번역문 표시 중
