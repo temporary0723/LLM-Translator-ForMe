@@ -278,41 +278,7 @@ function saveRulePrompt() {
     }
 }
 
-// 프롬프트 관리 함수
-function loadSelectedPrompt() {
-    const selectorElement = $('#llm_prompt_selector');
-    const editorElement = $('#llm_prompt_editor');
-    const labelElement = $('#llm_prompt_editor_label');
-    
-    if (selectorElement.length === 0 || editorElement.length === 0) return;
-    
-    const selectedPromptKey = selectorElement.val();
-    if (!selectedPromptKey) return;
-    
-    let promptValue = '';
-    let labelText = '';
-
-    // 커스텀 프롬프트 확인
-    const customPrompt = promptManager.customPrompts.find(p => p.id === selectedPromptKey);
-    if (customPrompt) {
-        promptValue = customPrompt.content;
-        labelText = customPrompt.title;
-    } else {
-        // 기본 프롬프트
-        promptValue = $(`#${selectedPromptKey}`).val() || extensionSettings[selectedPromptKey] || '';
-        labelText = selectorElement.find('option:selected').text() || 'Prompt';
-    }
-    
-            logDebug(`Loading prompt: ${selectedPromptKey}`);
-    
-    // 편집기에 프롬프트 내용 로드
-    editorElement.val(promptValue);
-    
-    // 라벨 업데이트
-    if (labelElement.length > 0) {
-        labelElement.text(labelText);
-    }
-}
+// 프롬프트 관리는 이제 PromptManager 클래스에서 처리됩니다
 
 
 
@@ -1710,12 +1676,20 @@ function initializeEventHandlers() {
 				// 예: saveSettingsDebounced(); 또는 해당 설정 값 직접 업데이트
 				if (originalTextareaId === 'llm_prompt_editor') {
 					// 통합 프롬프트 편집기의 경우 현재 선택된 프롬프트에 저장
-					const selectorElement = $('#llm_prompt_selector');
+					const selectorElement = $('#prompt_select');
 					if (selectorElement.length > 0) {
 						const selectedPromptKey = selectorElement.val();
 						if (selectedPromptKey) {
-							extensionSettings[selectedPromptKey] = popupTextarea.value;
-							$(`#${selectedPromptKey}`).val(popupTextarea.value);
+							// 커스텀 프롬프트 확인
+							const customPrompt = promptManager.customPrompts.find(p => p.id === selectedPromptKey);
+							if (customPrompt) {
+								customPrompt.content = popupTextarea.value;
+								promptManager.saveToLocalStorage();
+							} else {
+								// 기본 프롬프트
+								extensionSettings[selectedPromptKey] = popupTextarea.value;
+								$(`#${selectedPromptKey}`).val(popupTextarea.value);
+							}
 						}
 					}
 				}
@@ -1797,38 +1771,7 @@ function initializeEventHandlers() {
         saveSettingsDebounced();
     });
 
-    // 프롬프트 관리 이벤트 핸들러들 (단순화)
-    $('#llm_prompt_selector').on('change', function() {
-        const newPromptKey = $(this).val();
-        const previousPromptKey = window.llmTranslatorPreviousPromptKey || 'llm_prompt_chat';
-        
-        // 이전 프롬프트 저장
-        if (previousPromptKey && $('#llm_prompt_editor').length > 0) {
-            const editorValue = $('#llm_prompt_editor').val();
-            $(`#${previousPromptKey}`).val(editorValue);
-            extensionSettings[previousPromptKey] = editorValue;
-        }
-        
-        loadSelectedPrompt();
-        window.llmTranslatorPreviousPromptKey = newPromptKey;
-        saveSettingsDebounced();
-    });
-
-    // 프롬프트 편집기 (디바운스 적용)
-    let promptInputTimeout;
-    $('#llm_prompt_editor').on('input', function() {
-        const currentPromptKey = $('#llm_prompt_selector').val();
-        const editorValue = $(this).val();
-        
-        if (!currentPromptKey) return;
-        
-        clearTimeout(promptInputTimeout);
-        promptInputTimeout = setTimeout(() => {
-            $(`#${currentPromptKey}`).val(editorValue);
-            extensionSettings[currentPromptKey] = editorValue;
-            saveSettingsDebounced();
-        }, 300);
-    });
+    // 프롬프트 관리는 이제 PromptManager 클래스에서 처리됩니다
 
     // 파라미터 슬라이더 동기화
     $('.parameter-settings input').on('input change', function() {
@@ -1984,13 +1927,6 @@ function initializeEventHandlers() {
         passwordInput.attr('type', type);
         $(this).toggleClass('fa-eye-slash fa-eye');
     });
-
-    // 프롬프트 선택기 초기화
-    if ($('#llm_prompt_selector').length > 0) {
-        $('#llm_prompt_selector').val('llm_prompt_chat');
-        window.llmTranslatorPreviousPromptKey = 'llm_prompt_chat';
-        loadSelectedPrompt();
-    }
     
     // 규칙 프롬프트 이벤트 핸들러
     $('#llm_rule_prompt').on('input change', saveRulePrompt);
@@ -4248,22 +4184,25 @@ class PromptManager {
             this.deleteSelectedPrompt();
         });
 
-        // 프롬프트 선택 이벤트 리스너 (번역용)
+        // 프롬프트 선택 이벤트 리스너 (번역용 + 편집기 로드)
         $(document).off('change', '#prompt_select').on('change', '#prompt_select', () => {
             const promptSelect = document.getElementById('prompt_select');
             const selectedId = promptSelect.value;
             
-            if (selectedId === 'default') {
+            // 편집기에 선택된 프롬프트 로드
+            this.loadPromptToEditor();
+            
+            // 번역용 프롬프트 설정 (커스텀 프롬프트인 경우)
+            const customPrompt = this.customPrompts.find(p => p.id === selectedId);
+            if (customPrompt) {
+                extensionSettings.selected_translation_prompt_id = selectedId;
+                extensionSettings.selected_translation_prompt = customPrompt.content;
+                logDebug('Selected translation prompt:', customPrompt.title, customPrompt.content);
+            } else {
+                // 기본 프롬프트 선택 시 초기화
                 extensionSettings.selected_translation_prompt_id = null;
                 extensionSettings.selected_translation_prompt = null;
-                logDebug('Using default translation prompt');
-            } else {
-                const selectedPrompt = this.customPrompts.find(p => p.id === selectedId);
-                if (selectedPrompt) {
-                    extensionSettings.selected_translation_prompt_id = selectedId;
-                    extensionSettings.selected_translation_prompt = selectedPrompt.content;
-                    logDebug('Selected translation prompt:', selectedPrompt.title, selectedPrompt.content);
-                }
+                logDebug('Using default translation prompt:', selectedId);
             }
             saveSettingsDebounced();
         });
@@ -4277,18 +4216,32 @@ class PromptManager {
     }
 
     updatePromptDropdown() {
-        // 프롬프트 선택 드롭다운 업데이트
+        // 통합 프롬프트 선택 드롭다운 업데이트
         const promptSelect = document.getElementById('prompt_select');
         if (!promptSelect) return;
+        
+        // 현재 선택된 값 저장
+        const currentValue = promptSelect.value;
         
         // 기존 옵션들 제거
         promptSelect.innerHTML = '';
         
-        // 기본 채팅 번역 프롬프트 추가
-        const defaultOption = document.createElement('option');
-        defaultOption.value = 'default';
-        defaultOption.textContent = '채팅 번역 프롬프트';
-        promptSelect.appendChild(defaultOption);
+        // 기본 프롬프트들 추가
+        const defaultPrompts = [
+            { value: 'llm_prompt_chat', text: '채팅 번역 프롬프트' },
+            { value: 'llm_prompt_retranslate_correction', text: '재번역 (교정) 프롬프트' },
+            { value: 'llm_prompt_retranslate_guidance', text: '재번역 (지침교정) 프롬프트' },
+            { value: 'llm_prompt_retranslate_paragraph', text: '재번역 (문단 수 맞추기) 프롬프트' },
+            { value: 'llm_prompt_input', text: '입력 번역 프롬프트' },
+            { value: 'llm_prefill_content', text: '프리필' }
+        ];
+        
+        defaultPrompts.forEach(prompt => {
+            const option = document.createElement('option');
+            option.value = prompt.value;
+            option.textContent = prompt.text;
+            promptSelect.appendChild(option);
+        });
         
         // 커스텀 프롬프트 추가
         this.customPrompts.forEach(prompt => {
@@ -4298,59 +4251,45 @@ class PromptManager {
             promptSelect.appendChild(option);
         });
 
-        // 저장된 선택 복원 또는 기본값 설정
-        if (extensionSettings.selected_translation_prompt_id) {
-            const exists = this.customPrompts.some(p => p.id === extensionSettings.selected_translation_prompt_id);
-            if (exists) {
-                promptSelect.value = extensionSettings.selected_translation_prompt_id;
-            } else {
-                promptSelect.value = 'default';
-                extensionSettings.selected_translation_prompt_id = null;
-                extensionSettings.selected_translation_prompt = null;
-                saveSettingsDebounced();
-            }
+        // 이전 선택값 복원 또는 기본값 설정
+        const valueExists = Array.from(promptSelect.options).some(opt => opt.value === currentValue);
+        if (valueExists && currentValue) {
+            promptSelect.value = currentValue;
         } else {
-            promptSelect.value = 'default';
+            promptSelect.value = 'llm_prompt_chat';
         }
-
-        // 프롬프트 수정 드롭다운도 업데이트
-        this.updatePromptModifyDropdown();
+        
+        // 편집기에 현재 선택된 프롬프트 로드
+        this.loadPromptToEditor();
     }
 
-    updatePromptModifyDropdown() {
-        const modifySelect = document.getElementById('llm_prompt_selector');
-        if (!modifySelect) return;
-
-        // 현재 선택된 값 저장
-        const currentValue = modifySelect.value;
-
-        // 기존 커스텀 프롬프트 옵션들 제거 (기본 옵션들은 유지)
-        const options = Array.from(modifySelect.options);
-        options.forEach(option => {
-            const value = option.value;
-            // 기본 프롬프트가 아닌 경우에만 제거
-            if (!['llm_prompt_chat', 'llm_prompt_retranslate_correction', 
-                'llm_prompt_retranslate_guidance', 'llm_prompt_retranslate_paragraph',
-                'llm_prompt_input', 'llm_prefill_content'].includes(value)) {
-                modifySelect.removeChild(option);
-            }
-        });
-
-        // 커스텀 프롬프트 추가
-        this.customPrompts.forEach(prompt => {
-            const option = document.createElement('option');
-            option.value = prompt.id;
-            option.textContent = prompt.title;
-            modifySelect.appendChild(option);
-        });
-
-        // 이전 선택값이 여전히 존재하는지 확인하고 복원 또는 기본값 설정
-        const valueExists = Array.from(modifySelect.options).some(opt => opt.value === currentValue);
-        if (valueExists) {
-            modifySelect.value = currentValue;
+    loadPromptToEditor() {
+        const promptSelect = document.getElementById('prompt_select');
+        const promptEditor = document.getElementById('llm_prompt_editor');
+        const promptLabel = document.getElementById('llm_prompt_editor_label');
+        
+        if (!promptSelect || !promptEditor || !promptLabel) return;
+        
+        const selectedValue = promptSelect.value;
+        
+        // 선택된 옵션의 텍스트 가져오기
+        const selectedOption = promptSelect.options[promptSelect.selectedIndex];
+        const promptTitle = selectedOption ? selectedOption.textContent : '';
+        
+        // 레이블 업데이트
+        promptLabel.textContent = promptTitle;
+        
+        // 커스텀 프롬프트인 경우
+        const customPrompt = this.customPrompts.find(p => p.id === selectedValue);
+        if (customPrompt) {
+            promptEditor.value = customPrompt.content;
         } else {
-            modifySelect.value = 'llm_prompt_chat';
-            loadSelectedPrompt();
+            // 기본 프롬프트인 경우
+            if (selectedValue && selectedValue in extensionSettings) {
+                promptEditor.value = extensionSettings[selectedValue] || '';
+            } else {
+                promptEditor.value = '';
+            }
         }
     }
 
@@ -4412,13 +4351,6 @@ class PromptManager {
             this.customPrompts = this.customPrompts.filter(p => p.id !== deletedPromptId);
             this.saveToLocalStorage();
 
-            // 프롬프트 수정 드롭다운 업데이트
-            const modifySelect = document.getElementById('llm_prompt_selector');
-            if (modifySelect && modifySelect.value === deletedPromptId) {
-                modifySelect.value = 'llm_prompt_chat';
-                loadSelectedPrompt();
-            }
-
             // 현재 선택된 번역 프롬프트였다면 초기화
             if (extensionSettings.selected_translation_prompt_id === deletedPromptId) {
                 extensionSettings.selected_translation_prompt_id = null;
@@ -4426,8 +4358,10 @@ class PromptManager {
                 saveSettingsDebounced();
             }
 
-            // 프롬프트 선택 드롭다운 업데이트
+            // 프롬프트 선택 드롭다운 업데이트 (기본 프롬프트로 변경)
             this.updatePromptDropdown();
+            
+            toastr.success('프롬프트가 삭제되었습니다.');
         }
     }
 
@@ -4445,7 +4379,7 @@ class PromptManager {
     }
 
     saveCurrentPrompt() {
-        const promptSelector = document.getElementById('llm_prompt_selector');
+        const promptSelector = document.getElementById('prompt_select');
         const promptEditor = document.getElementById('llm_prompt_editor');
         const selectedValue = promptSelector.value;
         const newContent = promptEditor.value.trim();

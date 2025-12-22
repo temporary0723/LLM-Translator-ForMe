@@ -70,11 +70,16 @@
                 <!-- 모델 목록은 동적으로 추가됨 -->
             </select>
 
-            <!-- 새로운 프롬프트 선택 드롭다운 -->
-            <label for="prompt_select">적용할 프롬프트 선택</label>
+            <!-- 통합 프롬프트 선택 드롭다운 -->
+            <label for="prompt_select">프롬프트 선택 및 수정</label>
             <div class="prompt-select-container">
                 <select id="prompt_select" class="text_pole">
-                    <option value="default">채팅 번역 프롬프트</option>
+                    <option value="llm_prompt_chat">채팅 번역 프롬프트</option>
+                    <option value="llm_prompt_retranslate_correction">재번역 (교정) 프롬프트</option>
+                    <option value="llm_prompt_retranslate_guidance">재번역 (지침교정) 프롬프트</option>
+                    <option value="llm_prompt_retranslate_paragraph">재번역 (문단 수 맞추기) 프롬프트</option>
+                    <option value="llm_prompt_input">입력 번역 프롬프트</option>
+                    <option value="llm_prefill_content">프리필</option>
                 </select>
                 <button id="addPromptBtn" class="menu_button small-button" title="프롬프트 추가">
                     <i class="fa-solid fa-plus"></i>
@@ -83,17 +88,6 @@
                     <i class="fa-solid fa-minus"></i>
                 </button>
             </div>
-
-            <!-- 프롬프트 선택 드롭다운 (텍스트 수정) -->
-            <label for="llm_prompt_selector">프롬프트 수정</label>
-            <select id="llm_prompt_selector">
-                <option value="llm_prompt_chat">채팅 번역 프롬프트</option>
-                <option value="llm_prompt_retranslate_correction">재번역 (교정) 프롬프트</option>
-                <option value="llm_prompt_retranslate_guidance">재번역 (지침교정) 프롬프트</option>
-                <option value="llm_prompt_retranslate_paragraph">재번역 (문단 수 맞추기) 프롬프트</option>
-                <option value="llm_prompt_input">입력 번역 프롬프트</option>
-                <option value="llm_prefill_content">프리필</option>
-            </select>
 
             <!-- 통합 프롬프트 편집 영역 -->
             <div class="flex-container align-items-center space-between">
