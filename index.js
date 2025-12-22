@@ -489,10 +489,32 @@ async function translate(text, options = {}) {
             isRetranslation = false
         } = options;
 
-        // 커스텀 프롬프트 적용
+        // 커스텀 프롬프트 적용 (실시간 텍스트필드 값 사용)
         let finalPrompt = prompt;
-        if (prompt === extensionSettings.llm_prompt_chat && extensionSettings.selected_translation_prompt) {
-            finalPrompt = extensionSettings.selected_translation_prompt;
+        
+        // 채팅 번역 프롬프트인 경우, 텍스트필드의 현재 값을 실시간 반영
+        if (prompt === extensionSettings.llm_prompt_chat) {
+            const editorElement = document.getElementById('llm_prompt_editor');
+            const selectElement = document.getElementById('prompt_select');
+            
+            // 텍스트필드의 현재 값을 사용 (저장하지 않아도 번역에 반영됨)
+            if (editorElement && selectElement) {
+                const selectedValue = selectElement.value;
+                const currentEditorValue = editorElement.value;
+                
+                // 1. 채팅 번역 프롬프트가 선택되어 있는 경우
+                if (selectedValue === 'llm_prompt_chat') {
+                    if (currentEditorValue && currentEditorValue.trim() !== '') {
+                        finalPrompt = currentEditorValue;
+                    }
+                }
+                // 2. 커스텀 프롬프트가 선택되어 있는 경우
+                else if (extensionSettings.selected_translation_prompt_id === selectedValue) {
+                    if (currentEditorValue && currentEditorValue.trim() !== '') {
+                        finalPrompt = currentEditorValue;
+                    }
+                }
+            }
         }
 
         // 규칙 프롬프트 처리
@@ -564,7 +586,17 @@ async function callLLMAPI(fullPrompt) {
     const messages = [{ role: 'user', content: fullPrompt }];
     
     if (extensionSettings.llm_prefill_toggle) {
-        const prefillContent = extensionSettings.llm_prefill_content || 'Understood. Here is my response:';
+        // 프리필도 텍스트필드 값 실시간 반영
+        let prefillContent = extensionSettings.llm_prefill_content || 'Understood. Here is my response:';
+        const editorElement = document.getElementById('llm_prompt_editor');
+        const selectElement = document.getElementById('prompt_select');
+        if (editorElement && selectElement && selectElement.value === 'llm_prefill_content') {
+            const currentEditorValue = editorElement.value;
+            if (currentEditorValue && currentEditorValue.trim() !== '') {
+                prefillContent = currentEditorValue;
+            }
+        }
+        
         const role = provider === 'google' ? 'model' : 'assistant';
         messages.push({ role, content: prefillContent });
     }
@@ -733,12 +765,35 @@ async function retranslateMessage(messageId, promptType, forceRetranslate = fals
                     'guidance': 'llm_prompt_retranslate_guidance', 
                     'paragraph': 'llm_prompt_retranslate_paragraph'
                 };
-                prompt = extensionSettings[promptMap[promptType]];
+                const promptKey = promptMap[promptType];
+                
+                // 텍스트필드의 현재 값을 실시간 반영
+                const editorElement = document.getElementById('llm_prompt_editor');
+                const selectElement = document.getElementById('prompt_select');
+                if (editorElement && selectElement && selectElement.value === promptKey) {
+                    const currentEditorValue = editorElement.value;
+                    prompt = (currentEditorValue && currentEditorValue.trim() !== '') 
+                        ? currentEditorValue 
+                        : extensionSettings[promptKey];
+                } else {
+                    prompt = extensionSettings[promptKey];
+                }
             } else {
                 // 기존 번역이 없는 경우 - 새 번역 수행
                 toastr.warning(`기존 번역문이 없습니다. 새로 번역합니다.`);
                 textToRetranslate = originalText;
-                prompt = extensionSettings.llm_prompt_chat;
+                
+                // 채팅 번역 프롬프트도 텍스트필드 값 실시간 반영
+                const editorElement = document.getElementById('llm_prompt_editor');
+                const selectElement = document.getElementById('prompt_select');
+                if (editorElement && selectElement && selectElement.value === 'llm_prompt_chat') {
+                    const currentEditorValue = editorElement.value;
+                    prompt = (currentEditorValue && currentEditorValue.trim() !== '') 
+                        ? currentEditorValue 
+                        : extensionSettings.llm_prompt_chat;
+                } else {
+                    prompt = extensionSettings.llm_prompt_chat;
+                }
             }
 
             const options = {
@@ -1176,8 +1231,19 @@ async function onTranslateInputMessageClick() {
     }
 
     try {
+        // 입력 번역 프롬프트도 텍스트필드 값 실시간 반영
+        let inputPrompt = extensionSettings.llm_prompt_input;
+        const editorElement = document.getElementById('llm_prompt_editor');
+        const selectElement = document.getElementById('prompt_select');
+        if (editorElement && selectElement && selectElement.value === 'llm_prompt_input') {
+            const currentEditorValue = editorElement.value;
+            if (currentEditorValue && currentEditorValue.trim() !== '') {
+                inputPrompt = currentEditorValue;
+            }
+        }
+        
         const options = {
-            prompt: extensionSettings.llm_prompt_input,
+            prompt: inputPrompt,
             isInputTranslation: true
         };
         const translatedText = await translate(textarea.value, options);
