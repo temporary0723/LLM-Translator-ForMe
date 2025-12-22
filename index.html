@@ -72,14 +72,19 @@
 
             <!-- 통합 프롬프트 선택 드롭다운 -->
             <label for="prompt_select">프롬프트 선택 및 수정</label>
+            <small style="display: block; margin-top: 5px; margin-bottom: 5px; opacity: 0.8; line-height: 1.4;">
+                💡 <strong>채팅 번역 프롬프트</strong> 또는 <strong>커스텀 프롬프트</strong>를 선택하면 메시지 번역 시 적용됩니다.<br>
+                ⚙️ 유틸리티 프롬프트(재번역, 입력 번역, 프리필)는 수정만 가능하며 선택시 메시지 번역에는 채팅 번역 프롬프트가 사용됩니다.
+            </small>
             <div class="prompt-select-container">
                 <select id="prompt_select" class="text_pole">
                     <option value="llm_prompt_chat">채팅 번역 프롬프트</option>
-                    <option value="llm_prompt_retranslate_correction">재번역 (교정) 프롬프트</option>
-                    <option value="llm_prompt_retranslate_guidance">재번역 (지침교정) 프롬프트</option>
-                    <option value="llm_prompt_retranslate_paragraph">재번역 (문단 수 맞추기) 프롬프트</option>
-                    <option value="llm_prompt_input">입력 번역 프롬프트</option>
-                    <option value="llm_prefill_content">프리필</option>
+                    <option disabled>─────────────────</option>
+                    <option value="llm_prompt_retranslate_correction">⚙️ 재번역 (교정) 프롬프트</option>
+                    <option value="llm_prompt_retranslate_guidance">⚙️ 재번역 (지침교정) 프롬프트</option>
+                    <option value="llm_prompt_retranslate_paragraph">⚙️ 재번역 (문단 수 맞추기) 프롬프트</option>
+                    <option value="llm_prompt_input">⚙️ 입력 번역 프롬프트</option>
+                    <option value="llm_prefill_content">⚙️ 프리필</option>
                 </select>
                 <button id="addPromptBtn" class="menu_button small-button" title="프롬프트 추가">
                     <i class="fa-solid fa-plus"></i>

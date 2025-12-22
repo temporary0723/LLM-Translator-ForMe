@@ -4226,33 +4226,46 @@ class PromptManager {
         // 기존 옵션들 제거
         promptSelect.innerHTML = '';
         
-        // 기본 프롬프트들 추가
-        const defaultPrompts = [
-            { value: 'llm_prompt_chat', text: '채팅 번역 프롬프트' },
-            { value: 'llm_prompt_retranslate_correction', text: '재번역 (교정) 프롬프트' },
-            { value: 'llm_prompt_retranslate_guidance', text: '재번역 (지침교정) 프롬프트' },
-            { value: 'llm_prompt_retranslate_paragraph', text: '재번역 (문단 수 맞추기) 프롬프트' },
-            { value: 'llm_prompt_input', text: '입력 번역 프롬프트' },
-            { value: 'llm_prefill_content', text: '프리필' }
-        ];
+        // 1. 채팅 번역 프롬프트 (메인 프롬프트)
+        const mainOption = document.createElement('option');
+        mainOption.value = 'llm_prompt_chat';
+        mainOption.textContent = '채팅 번역 프롬프트';
+        promptSelect.appendChild(mainOption);
         
-        defaultPrompts.forEach(prompt => {
-            const option = document.createElement('option');
-            option.value = prompt.value;
-            option.textContent = prompt.text;
-            promptSelect.appendChild(option);
-        });
-        
-        // 커스텀 프롬프트 추가
+        // 2. 커스텀 프롬프트들 추가
         this.customPrompts.forEach(prompt => {
             const option = document.createElement('option');
             option.value = prompt.id;
             option.textContent = prompt.title;
             promptSelect.appendChild(option);
         });
+        
+        // 3. 구분선 (disabled option)
+        if (this.customPrompts.length > 0) {
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.textContent = '─────────────────';
+            promptSelect.appendChild(separator);
+        }
+        
+        // 4. 유틸리티 프롬프트들 (맨 아래)
+        const utilityPrompts = [
+            { value: 'llm_prompt_retranslate_correction', text: '⚙️ 재번역 (교정) 프롬프트' },
+            { value: 'llm_prompt_retranslate_guidance', text: '⚙️ 재번역 (지침교정) 프롬프트' },
+            { value: 'llm_prompt_retranslate_paragraph', text: '⚙️ 재번역 (문단 수 맞추기) 프롬프트' },
+            { value: 'llm_prompt_input', text: '⚙️ 입력 번역 프롬프트' },
+            { value: 'llm_prefill_content', text: '⚙️ 프리필' }
+        ];
+        
+        utilityPrompts.forEach(prompt => {
+            const option = document.createElement('option');
+            option.value = prompt.value;
+            option.textContent = prompt.text;
+            promptSelect.appendChild(option);
+        });
 
         // 이전 선택값 복원 또는 기본값 설정
-        const valueExists = Array.from(promptSelect.options).some(opt => opt.value === currentValue);
+        const valueExists = Array.from(promptSelect.options).some(opt => opt.value === currentValue && !opt.disabled);
         if (valueExists && currentValue) {
             promptSelect.value = currentValue;
         } else {
