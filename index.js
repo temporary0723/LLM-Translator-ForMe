@@ -252,6 +252,8 @@ function loadSettings() {
                     extensionSettings.selected_translation_prompt = selectedPrompt.content;
                     logDebug('Restored translation prompt:', selectedPrompt.title);
                 }
+                // 텍스트 필드에도 프롬프트 로드
+                promptManager.loadPromptToEditor();
             }
         }
     }
@@ -4433,7 +4435,7 @@ class PromptManager {
 
     getSelectedPrompt() {
         // 저장된 선택 프롬프트 ID 확인
-        const savedPromptId = extensionSettings.selected_translation_prompt;
+        const savedPromptId = extensionSettings.selected_translation_prompt_id;
         if (!savedPromptId) return null;
 
         // 저장된 ID로 프롬프트 찾기
