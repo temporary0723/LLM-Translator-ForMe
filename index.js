@@ -4345,18 +4345,10 @@ class PromptManager {
     loadPromptToEditor() {
         const promptSelect = document.getElementById('prompt_select');
         const promptEditor = document.getElementById('llm_prompt_editor');
-        const promptLabel = document.getElementById('llm_prompt_editor_label');
         
-        if (!promptSelect || !promptEditor || !promptLabel) return;
+        if (!promptSelect || !promptEditor) return;
         
         const selectedValue = promptSelect.value;
-        
-        // 선택된 옵션의 텍스트 가져오기
-        const selectedOption = promptSelect.options[promptSelect.selectedIndex];
-        const promptTitle = selectedOption ? selectedOption.textContent : '';
-        
-        // 레이블 업데이트
-        promptLabel.textContent = promptTitle;
         
         // 커스텀 프롬프트인 경우
         const customPrompt = this.customPrompts.find(p => p.id === selectedValue);
