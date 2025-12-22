@@ -62,7 +62,7 @@ const defaultSettings = {
     provider_model_history: {
         openai: 'gpt-4o-mini',
         claude: 'claude-3-5-sonnet-20241022',
-        google: 'gemini-1.5-pro',
+        google: 'gemini-2.5-pro',
         cohere: 'command'
     },
     throttle_delay: '0',
@@ -392,6 +392,9 @@ function updateModelList() {
 
     const models = {
         'openai': [
+            'gpt-5.2',
+            'gpt-5-mini',
+            'gpt-5-nano',
             'chatgpt-4o-latest',
             'gpt-4o',
             'gpt-4o-2024-11-20',
@@ -433,21 +436,13 @@ function updateModelList() {
             'claude-2.0'
         ],
         'google': [
+            'gemini-3-pro-preview',
+            'gemini-3-flash-preview',
             'gemini-2.5-pro',
             'gemini-2.5-flash',
+            'gemini-2.5-flash-lite',
             'gemini-2.0-flash',
-            'gemini-exp-1121',
-            'gemini-1.5-pro-latest',
-            'gemini-1.5-pro',
-            'gemini-1.5-pro-001',
-            'gemini-1.5-pro-002',
-            'gemini-1.5-flash-8b-latest',
-            'gemini-1.5-flash-8b',
-            'gemini-1.5-flash-8b-001',
-            'gemini-1.5-flash-latest',
-            'gemini-1.5-flash',
-            'gemini-1.5-flash-001',
-            'gemini-1.5-flash-002'
+            'gemini-2.0-flash-lite'
         ],
         'cohere': [
             'command-r7b-12-2024',
