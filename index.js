@@ -62,7 +62,7 @@ const defaultSettings = {
     provider_model_history: {
         openai: 'gpt-4o-mini',
         claude: 'claude-3-5-sonnet-20241022',
-        google: 'gemini-1.5-pro',
+        google: 'gemini-2.5-pro',
         cohere: 'command'
     },
     throttle_delay: '0',
@@ -252,6 +252,8 @@ function loadSettings() {
                     extensionSettings.selected_translation_prompt = selectedPrompt.content;
                     logDebug('Restored translation prompt:', selectedPrompt.title);
                 }
+                // 텍스트 필드에도 프롬프트 로드
+                promptManager.loadPromptToEditor();
             }
         }
     }
@@ -278,41 +280,7 @@ function saveRulePrompt() {
     }
 }
 
-// 프롬프트 관리 함수
-function loadSelectedPrompt() {
-    const selectorElement = $('#llm_prompt_selector');
-    const editorElement = $('#llm_prompt_editor');
-    const labelElement = $('#llm_prompt_editor_label');
-    
-    if (selectorElement.length === 0 || editorElement.length === 0) return;
-    
-    const selectedPromptKey = selectorElement.val();
-    if (!selectedPromptKey) return;
-    
-    let promptValue = '';
-    let labelText = '';
-
-    // 커스텀 프롬프트 확인
-    const customPrompt = promptManager.customPrompts.find(p => p.id === selectedPromptKey);
-    if (customPrompt) {
-        promptValue = customPrompt.content;
-        labelText = customPrompt.title;
-    } else {
-        // 기본 프롬프트
-        promptValue = $(`#${selectedPromptKey}`).val() || extensionSettings[selectedPromptKey] || '';
-        labelText = selectorElement.find('option:selected').text() || 'Prompt';
-    }
-    
-            logDebug(`Loading prompt: ${selectedPromptKey}`);
-    
-    // 편집기에 프롬프트 내용 로드
-    editorElement.val(promptValue);
-    
-    // 라벨 업데이트
-    if (labelElement.length > 0) {
-        labelElement.text(labelText);
-    }
-}
+// 프롬프트 관리는 이제 PromptManager 클래스에서 처리됩니다
 
 
 
@@ -426,6 +394,9 @@ function updateModelList() {
 
     const models = {
         'openai': [
+            'gpt-5.2',
+            'gpt-5-mini',
+            'gpt-5-nano',
             'chatgpt-4o-latest',
             'gpt-4o',
             'gpt-4o-2024-11-20',
@@ -467,21 +438,13 @@ function updateModelList() {
             'claude-2.0'
         ],
         'google': [
+            'gemini-3-pro-preview',
+            'gemini-3-flash-preview',
             'gemini-2.5-pro',
             'gemini-2.5-flash',
+            'gemini-2.5-flash-lite',
             'gemini-2.0-flash',
-            'gemini-exp-1121',
-            'gemini-1.5-pro-latest',
-            'gemini-1.5-pro',
-            'gemini-1.5-pro-001',
-            'gemini-1.5-pro-002',
-            'gemini-1.5-flash-8b-latest',
-            'gemini-1.5-flash-8b',
-            'gemini-1.5-flash-8b-001',
-            'gemini-1.5-flash-latest',
-            'gemini-1.5-flash',
-            'gemini-1.5-flash-001',
-            'gemini-1.5-flash-002'
+            'gemini-2.0-flash-lite'
         ],
         'cohere': [
             'command-r7b-12-2024',
@@ -523,10 +486,32 @@ async function translate(text, options = {}) {
             isRetranslation = false
         } = options;
 
-        // 커스텀 프롬프트 적용
+        // 커스텀 프롬프트 적용 (실시간 텍스트필드 값 사용)
         let finalPrompt = prompt;
-        if (prompt === extensionSettings.llm_prompt_chat && extensionSettings.selected_translation_prompt) {
-            finalPrompt = extensionSettings.selected_translation_prompt;
+        
+        // 채팅 번역 프롬프트인 경우, 텍스트필드의 현재 값을 실시간 반영
+        if (prompt === extensionSettings.llm_prompt_chat) {
+            const editorElement = document.getElementById('llm_prompt_editor');
+            const selectElement = document.getElementById('prompt_select');
+            
+            // 텍스트필드의 현재 값을 사용 (저장하지 않아도 번역에 반영됨)
+            if (editorElement && selectElement) {
+                const selectedValue = selectElement.value;
+                const currentEditorValue = editorElement.value;
+                
+                // 1. 채팅 번역 프롬프트가 선택되어 있는 경우
+                if (selectedValue === 'llm_prompt_chat') {
+                    if (currentEditorValue && currentEditorValue.trim() !== '') {
+                        finalPrompt = currentEditorValue;
+                    }
+                }
+                // 2. 커스텀 프롬프트가 선택되어 있는 경우
+                else if (extensionSettings.selected_translation_prompt_id === selectedValue) {
+                    if (currentEditorValue && currentEditorValue.trim() !== '') {
+                        finalPrompt = currentEditorValue;
+                    }
+                }
+            }
         }
 
         // 규칙 프롬프트 처리
@@ -598,7 +583,17 @@ async function callLLMAPI(fullPrompt) {
     const messages = [{ role: 'user', content: fullPrompt }];
     
     if (extensionSettings.llm_prefill_toggle) {
-        const prefillContent = extensionSettings.llm_prefill_content || 'Understood. Here is my response:';
+        // 프리필도 텍스트필드 값 실시간 반영
+        let prefillContent = extensionSettings.llm_prefill_content || 'Understood. Here is my response:';
+        const editorElement = document.getElementById('llm_prompt_editor');
+        const selectElement = document.getElementById('prompt_select');
+        if (editorElement && selectElement && selectElement.value === 'llm_prefill_content') {
+            const currentEditorValue = editorElement.value;
+            if (currentEditorValue && currentEditorValue.trim() !== '') {
+                prefillContent = currentEditorValue;
+            }
+        }
+        
         const role = provider === 'google' ? 'model' : 'assistant';
         messages.push({ role, content: prefillContent });
     }
@@ -767,12 +762,35 @@ async function retranslateMessage(messageId, promptType, forceRetranslate = fals
                     'guidance': 'llm_prompt_retranslate_guidance', 
                     'paragraph': 'llm_prompt_retranslate_paragraph'
                 };
-                prompt = extensionSettings[promptMap[promptType]];
+                const promptKey = promptMap[promptType];
+                
+                // 텍스트필드의 현재 값을 실시간 반영
+                const editorElement = document.getElementById('llm_prompt_editor');
+                const selectElement = document.getElementById('prompt_select');
+                if (editorElement && selectElement && selectElement.value === promptKey) {
+                    const currentEditorValue = editorElement.value;
+                    prompt = (currentEditorValue && currentEditorValue.trim() !== '') 
+                        ? currentEditorValue 
+                        : extensionSettings[promptKey];
+                } else {
+                    prompt = extensionSettings[promptKey];
+                }
             } else {
                 // 기존 번역이 없는 경우 - 새 번역 수행
                 toastr.warning(`기존 번역문이 없습니다. 새로 번역합니다.`);
                 textToRetranslate = originalText;
-                prompt = extensionSettings.llm_prompt_chat;
+                
+                // 채팅 번역 프롬프트도 텍스트필드 값 실시간 반영
+                const editorElement = document.getElementById('llm_prompt_editor');
+                const selectElement = document.getElementById('prompt_select');
+                if (editorElement && selectElement && selectElement.value === 'llm_prompt_chat') {
+                    const currentEditorValue = editorElement.value;
+                    prompt = (currentEditorValue && currentEditorValue.trim() !== '') 
+                        ? currentEditorValue 
+                        : extensionSettings.llm_prompt_chat;
+                } else {
+                    prompt = extensionSettings.llm_prompt_chat;
+                }
             }
 
             const options = {
@@ -787,7 +805,22 @@ async function retranslateMessage(messageId, promptType, forceRetranslate = fals
             await deleteTranslationByOriginalText(originalText);
             await addTranslationToDB(originalText, retranslation);
             message.extra.display_text = processTranslationText(originalText, retranslation);
+            // 현재 원문을 저장 (메시지 수정 시 이전 원문의 번역을 삭제하기 위해)
+            message.extra.original_text_for_translation = originalText;
+            
+            // 원문 표시 백업 초기화 (재번역했으므로)
+            delete message.extra.original_translation_backup;
+            
             updateMessageBlock(messageId, message);
+            
+            // 번역문 표시 플래그 설정 (Font Manager 등 다른 확장과의 호환성을 위해)
+            // updateMessageBlock 후 DOM이 완전히 업데이트된 후 플래그 설정
+            setTimeout(() => {
+                const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+                const textBlock = messageBlock.find('.mes_text');
+                textBlock.data('showing-original', false);
+            }, 100);
+            
             await context.saveChat();
             
             toastr.success(`재번역(${promptTypeKorean}) 완료 #${messageId}`);
@@ -873,6 +906,8 @@ async function translateMessage(messageId, forceTranslate = false, source = 'man
             
             if (cachedTranslation) {
                 message.extra.display_text = processTranslationText(originalText, cachedTranslation);
+                // 현재 원문을 저장 (메시지 수정 시 이전 원문의 번역을 삭제하기 위해)
+                message.extra.original_text_for_translation = originalText;
                 if (source !== 'auto') {
                     toastr.info('IndexedDB에서 번역문을 가져왔습니다.');
                 }
@@ -883,7 +918,22 @@ async function translateMessage(messageId, forceTranslate = false, source = 'man
                 message.extra.display_text = processTranslationText(originalText, translation);
             }
             
+            // 현재 원문을 저장 (메시지 수정 시 이전 원문의 번역을 삭제하기 위해)
+            message.extra.original_text_for_translation = originalText;
+            
+            // 원문 표시 백업 초기화 (새로 번역했으므로)
+            delete message.extra.original_translation_backup;
+            
             updateMessageBlock(messageId, message);
+            
+            // 번역문 표시 플래그 설정 (Font Manager 등 다른 확장과의 호환성을 위해)
+            // updateMessageBlock 후 DOM이 완전히 업데이트된 후 플래그 설정
+            setTimeout(() => {
+                const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+                const textBlock = messageBlock.find('.mes_text');
+                textBlock.data('showing-original', false);
+            }, 100);
+            
             await context.saveChat();
         }
     } catch (error) {
@@ -909,21 +959,31 @@ async function toggleOriginalText(messageId) {
 
     const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
     const textBlock = messageBlock.find('.mes_text');
+    const isCurrentlyShowingOriginal = textBlock.data('showing-original');
 
-    const originalDisplayText = message.extra.display_text;
-
-    if (textBlock.data('showing-original')) {
-        message.extra.display_text = originalDisplayText;
-        textBlock.data('showing-original', false);
+    if (isCurrentlyShowingOriginal) {
+        // 원문 표시 중 → 번역문으로 전환
+        if (message.extra.original_translation_backup) {
+            message.extra.display_text = message.extra.original_translation_backup;
+            delete message.extra.original_translation_backup;
+        }
     } else {
+        // 번역문 표시 중 → 원문으로 전환
+        if (!message.extra.original_translation_backup) {
+            message.extra.original_translation_backup = message.extra.display_text;
+        }
         const originalText = substituteParams(message.mes, context.name1, message.name);
         message.extra.display_text = originalText;
-        textBlock.data('showing-original', true);
     }
 
     await updateMessageBlock(messageId, message);
 
-    message.extra.display_text = originalDisplayText;
+    // updateMessageBlock 후 DOM이 완전히 업데이트된 후 플래그 설정
+    setTimeout(() => {
+        const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+        const textBlock = messageBlock.find('.mes_text');
+        textBlock.data('showing-original', !isCurrentlyShowingOriginal);
+    }, 100);
 }
 
 // 현재 화면에 번역문이 표시되고 있는지 확인하는 함수
@@ -956,7 +1016,15 @@ function isTranslationCurrentlyDisplayed(messageId) {
     const currentDisplayedHtml = textBlock.html();
     
     // HTML에서 텍스트만 추출하여 비교
-    const currentDisplayedText = $('<div>').html(currentDisplayedHtml).text().trim();
+    // Font Manager 등 다른 확장이 추가한 태그를 제거하여 정확한 비교
+    const tempDiv = $('<div>').html(currentDisplayedHtml);
+    
+    // Font Manager가 추가한 커스텀 태그 폰트 span 제거
+    tempDiv.find('[data-custom-tag-font]').each(function() {
+        $(this).replaceWith($(this).html());
+    });
+    
+    const currentDisplayedText = tempDiv.text().trim();
     const originalTextTrimmed = originalText.trim();
     
     // 현재 표시된 텍스트가 원본과 같으면 원문 표시 중, 다르면 번역문 표시 중
@@ -1014,19 +1082,23 @@ async function showOriginalText(messageId) {
     const message = context.chat[messageId];
     if (!message?.extra?.display_text) return;
 
-    const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
-    const textBlock = messageBlock.find('.mes_text');
-    const originalDisplayText = message.extra.display_text;
+    // 번역문을 백업 (나중에 복원하기 위해)
+    if (!message.extra.original_translation_backup) {
+        message.extra.original_translation_backup = message.extra.display_text;
+    }
 
     // 원문으로 전환
     const originalText = substituteParams(message.mes, context.name1, message.name);
     message.extra.display_text = originalText;
-    textBlock.data('showing-original', true);
 
     await updateMessageBlock(messageId, message);
 
-    // 원래 번역문 복원 (메모리에만)
-    message.extra.display_text = originalDisplayText;
+    // updateMessageBlock 후 DOM이 완전히 업데이트된 후 플래그 설정
+    setTimeout(() => {
+        const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+        const textBlock = messageBlock.find('.mes_text');
+        textBlock.data('showing-original', true);
+    }, 100);
 }
 
 // 번역 버튼 클릭 시 상태에 따른 동작 처리
@@ -1045,21 +1117,40 @@ async function handleTranslateButtonClick(messageId) {
         await translateMessage(messageId, true, 'handleTranslateButtonClick');
         return;
     }
-
+    
     // 현재 번역문이 표시되고 있는지 확인
     const isShowingTranslation = isTranslationCurrentlyDisplayed(messageId);
     
     if (isShowingTranslation) {
         // 번역문이 표시되고 있는 경우 → 원문 표시
         await showOriginalText(messageId);
+        toastr.info(`원문으로 전환했습니다 #${messageId}`);
     } else {
-        // 원문이 표시되고 있는 경우 → 번역 실행
-        // 번역 실행 전에 showing-original 플래그 초기화
-        const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
-        const textBlock = messageBlock.find('.mes_text');
-        textBlock.data('showing-original', false);
+        // 원문이 표시되고 있는 경우 → 백업된 번역문 복원
         
-        await translateMessage(messageId, true, 'handleTranslateButtonClick_retranslate');
+        // 백업된 번역문이 있으면 복원
+        if (message.extra.original_translation_backup) {
+            message.extra.display_text = message.extra.original_translation_backup;
+            delete message.extra.original_translation_backup;
+            
+            await updateMessageBlock(messageId, message);
+            
+            // 번역문 표시 플래그 설정
+            setTimeout(() => {
+                const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+                const textBlock = messageBlock.find('.mes_text');
+                textBlock.data('showing-original', false);
+            }, 100);
+            
+            toastr.info(`번역문으로 전환했습니다 #${messageId}`);
+        } else {
+            // 백업이 없으면 재번역
+            const messageBlock = $(`#chat .mes[mesid="${messageId}"]`);
+            const textBlock = messageBlock.find('.mes_text');
+            textBlock.data('showing-original', false);
+            
+            await translateMessage(messageId, true, 'handleTranslateButtonClick_retranslate');
+        }
     }
 }
 
@@ -1137,8 +1228,19 @@ async function onTranslateInputMessageClick() {
     }
 
     try {
+        // 입력 번역 프롬프트도 텍스트필드 값 실시간 반영
+        let inputPrompt = extensionSettings.llm_prompt_input;
+        const editorElement = document.getElementById('llm_prompt_editor');
+        const selectElement = document.getElementById('prompt_select');
+        if (editorElement && selectElement && selectElement.value === 'llm_prompt_input') {
+            const currentEditorValue = editorElement.value;
+            if (currentEditorValue && currentEditorValue.trim() !== '') {
+                inputPrompt = currentEditorValue;
+            }
+        }
+        
         const options = {
-            prompt: extensionSettings.llm_prompt_input,
+            prompt: inputPrompt,
             isInputTranslation: true
         };
         const translatedText = await translate(textarea.value, options);
@@ -1536,7 +1638,7 @@ const handleIncomingMessage = createEventHandler(translateIncomingMessage, shoul
 const handleOutgoingMessage = createEventHandler(translateOutgoingMessage, shouldTranslate);
 
 // 메시지 수정 시 번역문 정리 (공식 스크립트 스타일)
-function handleMessageEdit(messageId) {
+async function handleMessageEdit(messageId) {
     const context = getContext();
     const message = context.chat[messageId];
     
@@ -1544,17 +1646,54 @@ function handleMessageEdit(messageId) {
     
     // 메시지 수정시 기존 번역문 초기화
     if (message.extra?.display_text) {
-        logDebug(`Message ${messageId} was edited, clearing translation data`);
-        delete message.extra.display_text;
+        // 현재 메시지의 원문 가져오기 (수정 후 원문)
+        const currentOriginalText = substituteParams(message.mes, context.name1, message.name);
         
-        // UI도 즉시 업데이트
-        updateMessageBlock(messageId, message);
+        // 저장된 이전 원문과 비교하여 실제로 수정되었는지 확인
+        const previousOriginalText = message.extra.original_text_for_translation;
         
-        // 자동 번역이 켜져있으면 새로 번역
-        if (shouldTranslate()) {
-            setTimeout(() => {
-                translateIncomingMessage(messageId);
-            }, 100); // 약간의 지연을 두어 UI 업데이트 후 번역
+        if (previousOriginalText && previousOriginalText !== currentOriginalText) {
+            // 실제로 원문이 변경된 경우에만 이전 원문의 번역 삭제
+            try {
+                await deleteTranslationByOriginalText(previousOriginalText);
+                logDebug(`Message ${messageId} was actually edited. Deleted translation for previous original text: "${previousOriginalText.substring(0, 50)}..."`);
+            } catch (error) {
+                // DB에 해당 번역이 없을 수도 있음 (이미 삭제되었거나 없는 경우)
+                if (error.message !== 'no matching data') {
+                    console.warn(`Failed to delete translation for previous original text:`, error);
+                }
+            }
+            
+            // display_text 삭제 (실제로 수정된 경우에만)
+            delete message.extra.display_text;
+            
+            // 현재 원문을 저장 (나중에 또 수정될 수 있으므로)
+            message.extra.original_text_for_translation = currentOriginalText;
+            
+            // UI도 즉시 업데이트
+            updateMessageBlock(messageId, message);
+            
+            // 자동 번역이 켜져있으면 새로 번역
+            if (shouldTranslate()) {
+                setTimeout(() => {
+                    translateIncomingMessage(messageId);
+                }, 100); // 약간의 지연을 두어 UI 업데이트 후 번역
+            }
+        } else if (previousOriginalText && previousOriginalText === currentOriginalText) {
+            // 수정 버튼을 눌렀지만 실제로는 수정하지 않은 경우
+            // 아무것도 하지 않음 (번역 데이터 유지)
+            logDebug(`Message ${messageId} edit button was clicked but no actual changes were made. Keeping translation data.`);
+        } else {
+            // previousOriginalText가 없는 경우 (번역이 있었지만 원문 추적이 안 된 경우)
+            // 기존 동작 유지
+            delete message.extra.display_text;
+            updateMessageBlock(messageId, message);
+            
+            if (shouldTranslate()) {
+                setTimeout(() => {
+                    translateIncomingMessage(messageId);
+                }, 100);
+            }
         }
     }
 }
@@ -1600,12 +1739,20 @@ function initializeEventHandlers() {
 				// 예: saveSettingsDebounced(); 또는 해당 설정 값 직접 업데이트
 				if (originalTextareaId === 'llm_prompt_editor') {
 					// 통합 프롬프트 편집기의 경우 현재 선택된 프롬프트에 저장
-					const selectorElement = $('#llm_prompt_selector');
+					const selectorElement = $('#prompt_select');
 					if (selectorElement.length > 0) {
 						const selectedPromptKey = selectorElement.val();
 						if (selectedPromptKey) {
-							extensionSettings[selectedPromptKey] = popupTextarea.value;
-							$(`#${selectedPromptKey}`).val(popupTextarea.value);
+							// 커스텀 프롬프트 확인
+							const customPrompt = promptManager.customPrompts.find(p => p.id === selectedPromptKey);
+							if (customPrompt) {
+								customPrompt.content = popupTextarea.value;
+								promptManager.saveToLocalStorage();
+							} else {
+								// 기본 프롬프트
+								extensionSettings[selectedPromptKey] = popupTextarea.value;
+								$(`#${selectedPromptKey}`).val(popupTextarea.value);
+							}
 						}
 					}
 				}
@@ -1687,38 +1834,7 @@ function initializeEventHandlers() {
         saveSettingsDebounced();
     });
 
-    // 프롬프트 관리 이벤트 핸들러들 (단순화)
-    $('#llm_prompt_selector').on('change', function() {
-        const newPromptKey = $(this).val();
-        const previousPromptKey = window.llmTranslatorPreviousPromptKey || 'llm_prompt_chat';
-        
-        // 이전 프롬프트 저장
-        if (previousPromptKey && $('#llm_prompt_editor').length > 0) {
-            const editorValue = $('#llm_prompt_editor').val();
-            $(`#${previousPromptKey}`).val(editorValue);
-            extensionSettings[previousPromptKey] = editorValue;
-        }
-        
-        loadSelectedPrompt();
-        window.llmTranslatorPreviousPromptKey = newPromptKey;
-        saveSettingsDebounced();
-    });
-
-    // 프롬프트 편집기 (디바운스 적용)
-    let promptInputTimeout;
-    $('#llm_prompt_editor').on('input', function() {
-        const currentPromptKey = $('#llm_prompt_selector').val();
-        const editorValue = $(this).val();
-        
-        if (!currentPromptKey) return;
-        
-        clearTimeout(promptInputTimeout);
-        promptInputTimeout = setTimeout(() => {
-            $(`#${currentPromptKey}`).val(editorValue);
-            extensionSettings[currentPromptKey] = editorValue;
-            saveSettingsDebounced();
-        }, 300);
-    });
+    // 프롬프트 관리는 이제 PromptManager 클래스에서 처리됩니다
 
     // 파라미터 슬라이더 동기화
     $('.parameter-settings input').on('input change', function() {
@@ -1874,13 +1990,6 @@ function initializeEventHandlers() {
         passwordInput.attr('type', type);
         $(this).toggleClass('fa-eye-slash fa-eye');
     });
-
-    // 프롬프트 선택기 초기화
-    if ($('#llm_prompt_selector').length > 0) {
-        $('#llm_prompt_selector').val('llm_prompt_chat');
-        window.llmTranslatorPreviousPromptKey = 'llm_prompt_chat';
-        loadSelectedPrompt();
-    }
     
     // 규칙 프롬프트 이벤트 핸들러
     $('#llm_rule_prompt').on('input change', saveRulePrompt);
@@ -3257,16 +3366,10 @@ function correctBackticks(input) {
  * @returns {string} 가공된 HTML 문자열 또는 원본 번역 텍스트
  */
 function processTranslationText(originalText, translatedText) {
-    const DEBUG_PREFIX = '[llm-translator Debug Mode]';
     const displayMode = extensionSettings.translation_display_mode || 'disabled'; // 설정값 읽기 (기본값 'disabled')
-
-    // console.log(`${DEBUG_PREFIX} processTranslationText START (Mode: ${displayMode})`);
-    // console.log(`${DEBUG_PREFIX} Input - Original:`, originalText);
-    // console.log(`${DEBUG_PREFIX} Input - Translated:`, translatedText);
 
     // 1. 'disabled' 모드 처리 (가장 먼저 확인)
     if (displayMode === 'disabled') {
-        // console.log(`${DEBUG_PREFIX} Mode is 'disabled'. Returning raw translated text.`);
         // translatedText가 null/undefined일 경우 빈 문자열 반환
         return translatedText || '';
     }
@@ -3274,21 +3377,47 @@ function processTranslationText(originalText, translatedText) {
     // 2. 'folded', 'original_first' 또는 'unfolded' 모드를 위한 공통 처리 시작
     // translatedText가 null, undefined, 또는 빈 문자열이면 빈 문자열 반환 (disabled 모드 외)
     if (!translatedText) {
-         // console.log(`${DEBUG_PREFIX} translatedText is empty or nullish (in ${displayMode} mode). Returning empty string.`);
          return '';
     }
-
-    // console.log(`${DEBUG_PREFIX} Mode is '${displayMode}'. Starting Placeholder processing...`);
 
     try {
         // 3. 특수 블록 패턴 정의 및 Placeholder 준비
         const specialBlockRegexes = [
             /<think>[\s\S]*?<\/think>/gi,
-            /<thinking>[\s\S]*?<\/thinking>/gi,                 // <<<--- 여기 추가: thinking 태그
+            /<thinking>[\s\S]*?<\/thinking>/gi,
             /<tableEdit>[\s\S]*?<\/tableEdit>/gi,
             /<details[^>]*>[\s\S]*?<\/details>/gi,
-            /^```[^\r\n]*\r?\n[\s\S]*?\r?\n```$/gm
+            /`{3,}[^`]*[\s\S]*?`{3,}/g  // 3개 이상의 백틱, non-greedy
         ];
+        
+        // Font Manager의 커스텀 태그를 동적으로 추가
+        try {
+            const fontManagerSettings = localStorage.getItem('font-manager-settings');
+            
+            if (fontManagerSettings) {
+                const parsedSettings = JSON.parse(fontManagerSettings);
+                
+                // 현재 프리셋 찾기
+                const currentPresetId = parsedSettings?.currentPreset;
+                const presets = parsedSettings?.presets || [];
+                const currentPreset = presets.find(p => p.id === currentPresetId);
+                
+                // 프리셋의 customTags 우선, 없으면 전역 customTags
+                const customTags = currentPreset?.customTags ?? parsedSettings?.customTags ?? [];
+                
+                // 각 커스텀 태그에 대한 정규식 추가
+                customTags.forEach(tag => {
+                    if (tag.tagName) {
+                        const escapedTagName = tag.tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const tagRegex = new RegExp(`<${escapedTagName}[^>]*>([\\s\\S]*?)</${escapedTagName}>`, 'gi');
+                        specialBlockRegexes.push(tagRegex);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('[LLM-Translator] Failed to load Font Manager custom tags:', error);
+        }
+        
         const placeholderPrefix = '__LLM_TRANSLATOR_SPECIAL_BLOCK_';
         const placeholderSuffix = '__';
         const placeholderRegexGlobal = new RegExp(placeholderPrefix + '\\d+' + placeholderSuffix, 'g');
@@ -3304,31 +3433,40 @@ function processTranslationText(originalText, translatedText) {
             textWithPlaceholders = textWithPlaceholders.replace(regex, (match) => {
                 const placeholder = `${placeholderPrefix}${placeholderIndex}${placeholderSuffix}`;
                 specialBlocksMap[placeholder] = match;
-                // console.log(`${DEBUG_PREFIX} Found & Replacing: ${placeholder} ->`, match.substring(0, 50) + '...');
                 placeholderIndex++;
                 return placeholder;
             });
         });
-        // console.log(`${DEBUG_PREFIX} Text with Placeholders:`, textWithPlaceholders);
-        // console.log(`${DEBUG_PREFIX} Special Blocks Map:`, specialBlocksMap);
+
+        // 번역문도 같은 방식으로 placeholder 처리
+        let translatedWithPlaceholders = translatedText || '';
+        let translatedPlaceholderIndex = 0;
+        const translatedBlocksMap = {};
+        
+        specialBlockRegexes.forEach(regex => {
+            translatedWithPlaceholders = translatedWithPlaceholders.replace(regex, (match) => {
+                const placeholder = `${placeholderPrefix}TRANSLATED_${translatedPlaceholderIndex}${placeholderSuffix}`;
+                translatedBlocksMap[placeholder] = match;
+                translatedPlaceholderIndex++;
+                return placeholder;
+            });
+        });
 
         // 5. 텍스트 전처리 (<br> -> \n, trim)
         let processedTextWithPlaceholders = (textWithPlaceholders || '').replace(/<br\s*\/?>/gi, '\n').trim();
-        let processedTranslated = (translatedText || '').replace(/<br\s*\/?>/gi, '\n').trim();
+        let processedTranslated = (translatedWithPlaceholders || '').replace(/<br\s*\/?>/gi, '\n').trim();
         let proseOnlyOriginalText = processedTextWithPlaceholders.replace(placeholderRegexGlobal, '').trim();
-
-        // console.log(`${DEBUG_PREFIX} Processed Text w/ Placeholders (for template split):`, processedTextWithPlaceholders);
-        // console.log(`${DEBUG_PREFIX} Processed Translated Text (for split):`, processedTranslated);
-        // console.log(`${DEBUG_PREFIX} Processed Prose Only Original (for matching split):`, proseOnlyOriginalText);
+        
+        // 번역문에서도 placeholder 제거하여 순수 텍스트만 추출
+        const translatedPlaceholderRegex = new RegExp(placeholderPrefix + 'TRANSLATED_\\d+' + placeholderSuffix, 'g');
+        const translatedPlaceholderRegexSingle = new RegExp('^' + placeholderPrefix + 'TRANSLATED_\\d+' + placeholderSuffix + '$');
+        let proseOnlyTranslatedText = processedTranslated.replace(translatedPlaceholderRegex, '').trim();
 
         // 6. 라인 분리 및 정리
         const templateLines = processedTextWithPlaceholders.split('\n').map(line => line.trim());
+        const translatedTemplateLines = processedTranslated.split('\n').map(line => line.trim()); // 번역문 템플릿 라인
         const proseOriginalLines = proseOnlyOriginalText.split('\n').map(line => line.trim()).filter(line => line !== '');
-        const translatedLines = processedTranslated.split('\n').map(line => line.trim()).filter(line => line !== '');
-
-        // console.log(`${DEBUG_PREFIX} Template Lines:`, templateLines, `Count: ${templateLines.length}`);
-        // console.log(`${DEBUG_PREFIX} Prose Original Lines:`, proseOriginalLines, `Count: ${proseOriginalLines.length}`);
-        // console.log(`${DEBUG_PREFIX} Translated Lines:`, translatedLines, `Count: ${translatedLines.length}`);
+        const translatedLines = proseOnlyTranslatedText.split('\n').map(line => line.trim()).filter(line => line !== '');
 
         // 7. 라인 수 일치 확인 및 처리 경로 분기
         const forceSequentialMatching = extensionSettings.force_sequential_matching;
@@ -3337,7 +3475,6 @@ function processTranslationText(originalText, translatedText) {
         
         if (canProcessLineByLine) {
             // 7a. 성공 경로: 라인 수 일치 (본문 라인 1개 이상)
-            // console.log(`${DEBUG_PREFIX} Line counts match (${proseOriginalLines.length}). Generating ${displayMode} HTML...`);
             
             // 순차 매칭 사용시 토스트 표시
             if (forceSequentialMatching && proseOriginalLines.length !== translatedLines.length && proseOriginalLines.length > 0 && translatedLines.length > 0) {
@@ -3347,11 +3484,48 @@ function processTranslationText(originalText, translatedText) {
             const resultHtmlParts = [];
             let proseLineIndex = 0;
 
-            for (const templateLine of templateLines) {
-                if (placeholderRegexSingle.test(templateLine)) {
-                    // Placeholder 복원
-                    resultHtmlParts.push(specialBlocksMap[templateLine]);
-                    // console.log(`${DEBUG_PREFIX} Reconstructing: Placeholder ${templateLine} -> Original Block`);
+            for (let i = 0; i < templateLines.length; i++) {
+                const templateLine = templateLines[i];
+                const translatedTemplateLine = translatedTemplateLines[i];
+                
+                if (placeholderRegexSingle.test(templateLine) && translatedPlaceholderRegexSingle.test(translatedTemplateLine)) {
+                    // Placeholder를 details 구조로 감싸기
+                    const originalBlock = specialBlocksMap[templateLine];
+                    const translatedBlock = translatedBlocksMap[translatedTemplateLine];
+                    
+                    // 코드 블록인 경우 (백틱으로 시작) - details 구조 없이 그대로 표시
+                    const isCodeBlock = originalBlock.trim().startsWith('```');
+                    
+                    if (isCodeBlock) {
+                        // 코드 블록은 번역하지 않고 원본만 표시
+                        resultHtmlParts.push(originalBlock);
+                    } else {
+                        // 일반 특수 블록은 details 구조로 감싸기
+                        let blockHTML = '';
+                        if (displayMode === 'folded') {
+                            blockHTML =
+                                '<details class="llm-translator-details mode-folded">' +
+                                    '<summary class="llm-translator-summary">' +
+                                        '<span class="translated_text clickable-text-org">' + translatedBlock + '</span>' +
+                                    '</summary>' +
+                                    '<span class="original_text">' + originalBlock + '</span>' +
+                                '</details>';
+                        } else if (displayMode === 'original_first') {
+                            blockHTML =
+                                '<details class="llm-translator-details mode-original-first">' +
+                                    '<summary class="llm-translator-summary">' +
+                                        '<span class="original_text clickable-text-org">' + originalBlock + '</span>' +
+                                    '</summary>' +
+                                    '<span class="translated_text">' + translatedBlock + '</span>' +
+                                '</details>';
+                        } else { // unfolded 모드
+                            blockHTML =
+                                '<span class="translated_text mode-unfolded">' + translatedBlock + '</span>' +
+                                '<br>' +
+                                '<span class="original_text mode-unfolded">' + originalBlock + '</span>';
+                        }
+                        resultHtmlParts.push(blockHTML);
+                    }
                 } else if (templateLine === '') {
                     // 빈 라인 유지
                     resultHtmlParts.push('');
@@ -3500,19 +3674,69 @@ function processTranslationText(originalText, translatedText) {
             }
             
             const finalHtmlResult = resultHtmlParts.join('\n').trim();
-            // console.log(`${DEBUG_PREFIX} Final Reconstructed HTML (Success - ${displayMode}):`, finalHtmlResult);
             return finalHtmlResult;
 
         } else {
             // 7b. Fallback 경로: 라인 수 불일치 또는 본문 라인 0개
             if (proseOriginalLines.length === 0 && translatedLines.length === 0 && templateLines.some(line => placeholderRegexSingle.test(line))) {
-                // 특수 블록만 있는 경우: Placeholder만 복원 (모드 무관)
-                // console.log(`${DEBUG_PREFIX} Fallback Case: Only special blocks found. Reconstructing blocks only.`);
-                const resultHtmlParts = templateLines.map(line => {
-                    return placeholderRegexSingle.test(line) ? specialBlocksMap[line] : line;
-                });
+                // 특수 블록만 있는 경우: 원문/번역문 placeholder를 details로 변환
+                
+                const translatedTemplateLines = processedTranslated.split('\n').map(line => line.trim());
+                const translatedPlaceholderRegexSingle = new RegExp('^' + placeholderPrefix + 'TRANSLATED_\\d+' + placeholderSuffix + '$');
+                
+                const resultHtmlParts = [];
+                for (let i = 0; i < templateLines.length; i++) {
+                    const origLine = templateLines[i];
+                    const transLine = translatedTemplateLines[i];
+                    
+                    if (placeholderRegexSingle.test(origLine) && transLine && translatedPlaceholderRegexSingle.test(transLine)) {
+                        // 원문과 번역문 placeholder를 details로 변환
+                        const originalBlock = specialBlocksMap[origLine];
+                        const translatedBlock = translatedBlocksMap[transLine];
+                        
+                        // 코드 블록인 경우 (백틱으로 시작) - details 구조 없이 그대로 표시
+                        const isCodeBlock = originalBlock.trim().startsWith('```');
+                        
+                        if (isCodeBlock) {
+                            // 코드 블록은 details 없이 번역문 그대로 표시
+                            resultHtmlParts.push(translatedBlock);
+                        } else {
+                            // 일반 특수 블록은 details 구조로 감싸기
+                            let blockHTML = '';
+                            if (displayMode === 'folded') {
+                                blockHTML =
+                                    '<details class="llm-translator-details mode-folded">' +
+                                        '<summary class="llm-translator-summary">' +
+                                            '<span class="translated_text clickable-text-org">' + translatedBlock + '</span>' +
+                                        '</summary>' +
+                                        '<span class="original_text">' + originalBlock + '</span>' +
+                                    '</details>';
+                            } else if (displayMode === 'original_first') {
+                                blockHTML =
+                                    '<details class="llm-translator-details mode-original-first">' +
+                                        '<summary class="llm-translator-summary">' +
+                                            '<span class="original_text clickable-text-org">' + originalBlock + '</span>' +
+                                        '</summary>' +
+                                        '<span class="translated_text">' + translatedBlock + '</span>' +
+                                    '</details>';
+                            } else { // unfolded
+                                blockHTML =
+                                    '<span class="translated_text mode-unfolded">' + translatedBlock + '</span>' +
+                                    '<br>' +
+                                    '<span class="original_text mode-unfolded">' + originalBlock + '</span>';
+                            }
+                            resultHtmlParts.push(blockHTML);
+                        }
+                    } else if (placeholderRegexSingle.test(origLine)) {
+                        // 원문만 placeholder인 경우
+                        resultHtmlParts.push(specialBlocksMap[origLine]);
+                    } else {
+                        // 일반 텍스트
+                        resultHtmlParts.push(origLine);
+                    }
+                }
+                
                 const finalHtmlResult = resultHtmlParts.join('\n').trim();
-                // console.log(`${DEBUG_PREFIX} Final Reconstructed HTML (Special Blocks Only):`, finalHtmlResult);
                 return finalHtmlResult;
 
             } else {
@@ -4023,22 +4247,25 @@ class PromptManager {
             this.deleteSelectedPrompt();
         });
 
-        // 프롬프트 선택 이벤트 리스너 (번역용)
+        // 프롬프트 선택 이벤트 리스너 (번역용 + 편집기 로드)
         $(document).off('change', '#prompt_select').on('change', '#prompt_select', () => {
             const promptSelect = document.getElementById('prompt_select');
             const selectedId = promptSelect.value;
             
-            if (selectedId === 'default') {
+            // 편집기에 선택된 프롬프트 로드
+            this.loadPromptToEditor();
+            
+            // 번역용 프롬프트 설정 (커스텀 프롬프트인 경우)
+            const customPrompt = this.customPrompts.find(p => p.id === selectedId);
+            if (customPrompt) {
+                extensionSettings.selected_translation_prompt_id = selectedId;
+                extensionSettings.selected_translation_prompt = customPrompt.content;
+                logDebug('Selected translation prompt:', customPrompt.title, customPrompt.content);
+            } else {
+                // 기본 프롬프트 선택 시 초기화
                 extensionSettings.selected_translation_prompt_id = null;
                 extensionSettings.selected_translation_prompt = null;
-                logDebug('Using default translation prompt');
-            } else {
-                const selectedPrompt = this.customPrompts.find(p => p.id === selectedId);
-                if (selectedPrompt) {
-                    extensionSettings.selected_translation_prompt_id = selectedId;
-                    extensionSettings.selected_translation_prompt = selectedPrompt.content;
-                    logDebug('Selected translation prompt:', selectedPrompt.title, selectedPrompt.content);
-                }
+                logDebug('Using default translation prompt:', selectedId);
             }
             saveSettingsDebounced();
         });
@@ -4052,80 +4279,85 @@ class PromptManager {
     }
 
     updatePromptDropdown() {
-        // 프롬프트 선택 드롭다운 업데이트
+        // 통합 프롬프트 선택 드롭다운 업데이트
         const promptSelect = document.getElementById('prompt_select');
         if (!promptSelect) return;
+        
+        // 현재 선택된 값 저장
+        const currentValue = promptSelect.value;
         
         // 기존 옵션들 제거
         promptSelect.innerHTML = '';
         
-        // 기본 채팅 번역 프롬프트 추가
-        const defaultOption = document.createElement('option');
-        defaultOption.value = 'default';
-        defaultOption.textContent = '채팅 번역 프롬프트';
-        promptSelect.appendChild(defaultOption);
+        // 1. 채팅 번역 프롬프트 (메인 프롬프트)
+        const mainOption = document.createElement('option');
+        mainOption.value = 'llm_prompt_chat';
+        mainOption.textContent = '채팅 번역 프롬프트';
+        promptSelect.appendChild(mainOption);
         
-        // 커스텀 프롬프트 추가
+        // 2. 커스텀 프롬프트들 추가
         this.customPrompts.forEach(prompt => {
             const option = document.createElement('option');
             option.value = prompt.id;
             option.textContent = prompt.title;
             promptSelect.appendChild(option);
         });
-
-        // 저장된 선택 복원 또는 기본값 설정
-        if (extensionSettings.selected_translation_prompt_id) {
-            const exists = this.customPrompts.some(p => p.id === extensionSettings.selected_translation_prompt_id);
-            if (exists) {
-                promptSelect.value = extensionSettings.selected_translation_prompt_id;
-            } else {
-                promptSelect.value = 'default';
-                extensionSettings.selected_translation_prompt_id = null;
-                extensionSettings.selected_translation_prompt = null;
-                saveSettingsDebounced();
-            }
-        } else {
-            promptSelect.value = 'default';
+        
+        // 3. 구분선 (disabled option)
+        if (this.customPrompts.length > 0) {
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.textContent = '─────────────────';
+            promptSelect.appendChild(separator);
         }
+        
+        // 4. 유틸리티 프롬프트들 (맨 아래)
+        const utilityPrompts = [
+            { value: 'llm_prompt_retranslate_correction', text: '⚙️ 재번역 (교정) 프롬프트' },
+            { value: 'llm_prompt_retranslate_guidance', text: '⚙️ 재번역 (지침교정) 프롬프트' },
+            { value: 'llm_prompt_retranslate_paragraph', text: '⚙️ 재번역 (문단 수 맞추기) 프롬프트' },
+            { value: 'llm_prompt_input', text: '⚙️ 입력 번역 프롬프트' },
+            { value: 'llm_prefill_content', text: '⚙️ 프리필' }
+        ];
+        
+        utilityPrompts.forEach(prompt => {
+            const option = document.createElement('option');
+            option.value = prompt.value;
+            option.textContent = prompt.text;
+            promptSelect.appendChild(option);
+        });
 
-        // 프롬프트 수정 드롭다운도 업데이트
-        this.updatePromptModifyDropdown();
+        // 이전 선택값 복원 또는 기본값 설정
+        const valueExists = Array.from(promptSelect.options).some(opt => opt.value === currentValue && !opt.disabled);
+        if (valueExists && currentValue) {
+            promptSelect.value = currentValue;
+        } else {
+            promptSelect.value = 'llm_prompt_chat';
+        }
+        
+        // 편집기에 현재 선택된 프롬프트 로드
+        this.loadPromptToEditor();
     }
 
-    updatePromptModifyDropdown() {
-        const modifySelect = document.getElementById('llm_prompt_selector');
-        if (!modifySelect) return;
-
-        // 현재 선택된 값 저장
-        const currentValue = modifySelect.value;
-
-        // 기존 커스텀 프롬프트 옵션들 제거 (기본 옵션들은 유지)
-        const options = Array.from(modifySelect.options);
-        options.forEach(option => {
-            const value = option.value;
-            // 기본 프롬프트가 아닌 경우에만 제거
-            if (!['llm_prompt_chat', 'llm_prompt_retranslate_correction', 
-                'llm_prompt_retranslate_guidance', 'llm_prompt_retranslate_paragraph',
-                'llm_prompt_input', 'llm_prefill_content'].includes(value)) {
-                modifySelect.removeChild(option);
-            }
-        });
-
-        // 커스텀 프롬프트 추가
-        this.customPrompts.forEach(prompt => {
-            const option = document.createElement('option');
-            option.value = prompt.id;
-            option.textContent = prompt.title;
-            modifySelect.appendChild(option);
-        });
-
-        // 이전 선택값이 여전히 존재하는지 확인하고 복원 또는 기본값 설정
-        const valueExists = Array.from(modifySelect.options).some(opt => opt.value === currentValue);
-        if (valueExists) {
-            modifySelect.value = currentValue;
+    loadPromptToEditor() {
+        const promptSelect = document.getElementById('prompt_select');
+        const promptEditor = document.getElementById('llm_prompt_editor');
+        
+        if (!promptSelect || !promptEditor) return;
+        
+        const selectedValue = promptSelect.value;
+        
+        // 커스텀 프롬프트인 경우
+        const customPrompt = this.customPrompts.find(p => p.id === selectedValue);
+        if (customPrompt) {
+            promptEditor.value = customPrompt.content;
         } else {
-            modifySelect.value = 'llm_prompt_chat';
-            loadSelectedPrompt();
+            // 기본 프롬프트인 경우
+            if (selectedValue && selectedValue in extensionSettings) {
+                promptEditor.value = extensionSettings[selectedValue] || '';
+            } else {
+                promptEditor.value = '';
+            }
         }
     }
 
@@ -4187,13 +4419,6 @@ class PromptManager {
             this.customPrompts = this.customPrompts.filter(p => p.id !== deletedPromptId);
             this.saveToLocalStorage();
 
-            // 프롬프트 수정 드롭다운 업데이트
-            const modifySelect = document.getElementById('llm_prompt_selector');
-            if (modifySelect && modifySelect.value === deletedPromptId) {
-                modifySelect.value = 'llm_prompt_chat';
-                loadSelectedPrompt();
-            }
-
             // 현재 선택된 번역 프롬프트였다면 초기화
             if (extensionSettings.selected_translation_prompt_id === deletedPromptId) {
                 extensionSettings.selected_translation_prompt_id = null;
@@ -4201,14 +4426,16 @@ class PromptManager {
                 saveSettingsDebounced();
             }
 
-            // 프롬프트 선택 드롭다운 업데이트
+            // 프롬프트 선택 드롭다운 업데이트 (기본 프롬프트로 변경)
             this.updatePromptDropdown();
+            
+            toastr.success('프롬프트가 삭제되었습니다.');
         }
     }
 
     getSelectedPrompt() {
         // 저장된 선택 프롬프트 ID 확인
-        const savedPromptId = extensionSettings.selected_translation_prompt;
+        const savedPromptId = extensionSettings.selected_translation_prompt_id;
         if (!savedPromptId) return null;
 
         // 저장된 ID로 프롬프트 찾기
@@ -4220,7 +4447,7 @@ class PromptManager {
     }
 
     saveCurrentPrompt() {
-        const promptSelector = document.getElementById('llm_prompt_selector');
+        const promptSelector = document.getElementById('prompt_select');
         const promptEditor = document.getElementById('llm_prompt_editor');
         const selectedValue = promptSelector.value;
         const newContent = promptEditor.value.trim();
