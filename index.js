@@ -243,19 +243,19 @@ function loadSettings() {
     // 프롬프트 선택 상태 복원
     if (promptManager) {
         const savedPromptId = extensionSettings.selected_translation_prompt_id;
-        if (savedPromptId) {
-            const promptSelect = document.getElementById('prompt_select');
-            if (promptSelect) {
-                promptSelect.value = savedPromptId;
-                const selectedPrompt = promptManager.getSelectedPrompt();
-                if (selectedPrompt) {
-                    extensionSettings.selected_translation_prompt = selectedPrompt.content;
-                    logDebug('Restored translation prompt:', selectedPrompt.title);
-                }
-                // 텍스트 필드에도 프롬프트 로드
-                promptManager.loadPromptToEditor();
+        const promptSelect = document.getElementById('prompt_select');
+        
+        if (savedPromptId && promptSelect) {
+            promptSelect.value = savedPromptId;
+            const selectedPrompt = promptManager.getSelectedPrompt();
+            if (selectedPrompt) {
+                extensionSettings.selected_translation_prompt = selectedPrompt.content;
+                logDebug('Restored translation prompt:', selectedPrompt.title);
             }
         }
+        
+        // 텍스트 필드에 프롬프트 로드 (항상 실행)
+        promptManager.loadPromptToEditor();
     }
 }
 
